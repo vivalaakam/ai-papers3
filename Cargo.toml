@@ -1,0 +1,29 @@
+[package]
+name = "papers3-rust"
+version = "0.1.0"
+authors = ["egg12138 <xoltraman@outlook.com>"]
+edition = "2021"
+resolver = "2"
+rust-version = "1.90"
+
+[[bin]]
+name = "papers3-rust"
+harness = false
+
+[profile.release]
+opt-level = "s"
+
+[profile.dev]
+debug = true
+opt-level = "z"
+
+[features]
+default = []
+experimental = ["esp-idf-svc/experimental"]
+
+[dependencies]
+log = "0.4"
+esp-idf-svc = "0.52"
+
+[build-dependencies]
+embuild = "0.33"
