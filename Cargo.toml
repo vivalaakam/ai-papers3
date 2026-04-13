@@ -1,13 +1,11 @@
 [package]
-name = "papers3-rust"
+name = "ai-papers3"
 version = "0.1.0"
-authors = ["egg12138 <xoltraman@outlook.com>"]
-edition = "2021"
+edition = "2024"
 resolver = "2"
-rust-version = "1.90"
 
 [[bin]]
-name = "papers3-rust"
+name = "ai-papers3"
 harness = false
 
 [profile.release]
@@ -24,6 +22,11 @@ experimental = ["esp-idf-svc/experimental"]
 [dependencies]
 log = "0.4"
 esp-idf-svc = "0.52"
+esp-idf-hal = { version = "0.46.2" , features = [] }
+embedded-sdmmc = "0.9.0"
+chrono = "0.4.44"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_yaml = "0.9.34"
 
 [build-dependencies]
 embuild = "0.33"
