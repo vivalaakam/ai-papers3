@@ -10,7 +10,10 @@ mod wifi;
 
 pub use clock::Clock;
 pub use config::Config;
-pub use display::{set_display_font_size, set_display_rotation, show_scene};
+pub use display::{
+    display_begin, display_commit, display_draw_bitmap, display_draw_rect, display_draw_text,
+    set_display_font_size, set_display_rotation,
+};
 pub use enums::MainAppError;
 pub use file::read_file;
 pub use image::{BmpImage, load_image};

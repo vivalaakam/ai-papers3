@@ -2,14 +2,31 @@
 extern crate alloc;
 
 use ai_papers3::{
-    Clock, Config, MainAppError, connect_wifi_networks, load_image, read_file,
-    set_display_font_size, set_display_rotation, show_scene,
+    Clock, Config, MainAppError, connect_wifi_networks, display_begin, display_commit,
+    display_draw_text, load_image, read_file, set_display_font_size, set_display_rotation,
 };
+use alloc::string::ToString;
 use embedded_sdmmc::{SdCard, VolumeManager};
 use esp_idf_hal::peripherals;
 use esp_idf_hal::spi::{SPI2, SpiDeviceDriver, SpiDriver, SpiDriverConfig, config};
 use esp_idf_hal::units::MegaHertz;
 use log::info;
+
+fn render_status(text: &str) {
+    if let Err(err) = display_begin() {
+        info!("Display init error: {}", err);
+        return;
+    }
+
+    if let Err(err) = display_draw_text(text, 16, 16) {
+        info!("Display text error: {}", err);
+        return;
+    }
+
+    if let Err(err) = display_commit() {
+        info!("Display commit error: {}", err);
+    }
+}
 
 fn show_loading_stage(stage: &str, accumulated: &mut alloc::string::String) {
     info!("{}", stage);
@@ -18,9 +35,7 @@ fn show_loading_stage(stage: &str, accumulated: &mut alloc::string::String) {
     }
     accumulated.push_str(stage);
 
-    if let Err(err) = show_scene(accumulated.as_str(), None) {
-        info!("Display error: {}", err);
-    }
+    render_status(accumulated.as_str());
 }
 
 fn main() -> Result<(), MainAppError> {
@@ -115,8 +130,6 @@ fn main() -> Result<(), MainAppError> {
         })
         .unwrap();
 
-    let image = load_image(&root_dir);
-
     let config = match read_file(&root_dir, "PAPERS~4.YAM") {
         Some(file_data) => match serde_yaml::from_slice::<Config>(&file_data) {
             Ok(data) => data,
@@ -141,12 +154,10 @@ fn main() -> Result<(), MainAppError> {
         Some(connection) => {
             alloc::format!("Готово\nWiFi: {}\nIP: {}", connection.ssid, connection.ip)
         }
-        None => alloc::format!("Готово\nWiFi: нет сети\nIP: --"),
+        None => "Готово\nWiFi: нет сети\nIP: --".to_string(),
     };
 
-    if let Err(err) = show_scene(status_text.as_str(), image.as_ref()) {
-        info!("Display error: {}", err);
-    }
+    render_status(status_text.as_str());
 
     info!("Hello, world!");
 

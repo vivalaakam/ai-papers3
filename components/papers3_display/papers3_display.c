@@ -29,6 +29,17 @@ static EpdiyHighlevelState s_highlevel;
 static bool s_initialized = false;
 static int s_rotation = EPD_ROT_INVERTED_PORTRAIT;
 static const FontFace* s_active_font = &ubuntu_16_font;
+static uint8_t* s_framebuffer = NULL;
+
+static void draw_bitmap(
+    uint8_t* framebuffer,
+    const uint8_t* bitmap,
+    int bitmap_width,
+    int bitmap_height,
+    int bitmap_x,
+    int bitmap_y
+);
+static int check_draw_error(enum EpdDrawError err);
 
 static const FontGlyph* find_glyph(uint16_t codepoint) {
     for (uint32_t i = 0; i < s_active_font->glyph_count; i++) {
@@ -124,6 +135,123 @@ static void draw_text(uint8_t* framebuffer, int x, int y, const char* text, uint
         }
         p = next;
     }
+}
+
+static int ensure_initialized(void) {
+    if (!s_initialized) {
+        int init_result = papers3_display_init();
+        if (init_result != 0) {
+            return init_result;
+        }
+    }
+
+    return 0;
+}
+
+int papers3_display_begin(void) {
+    int init_result = ensure_initialized();
+    if (init_result != 0) {
+        return init_result;
+    }
+
+    s_framebuffer = epd_hl_get_framebuffer(&s_highlevel);
+    epd_hl_set_all_white(&s_highlevel);
+    return 0;
+}
+
+int papers3_display_draw_text(const char* text, int x, int y) {
+    int init_result = ensure_initialized();
+    if (init_result != 0) {
+        return init_result;
+    }
+
+    if (s_framebuffer == NULL) {
+        s_framebuffer = epd_hl_get_framebuffer(&s_highlevel);
+    }
+
+    draw_text(s_framebuffer, x, y, text, 0x00);
+    return 0;
+}
+
+int papers3_display_draw_bitmap(
+    const uint8_t* bitmap,
+    int bitmap_width,
+    int bitmap_height,
+    int bitmap_x,
+    int bitmap_y
+) {
+    int init_result = ensure_initialized();
+    if (init_result != 0) {
+        return init_result;
+    }
+
+    if (bitmap == NULL || bitmap_width <= 0 || bitmap_height <= 0) {
+        return 0;
+    }
+
+    if (s_framebuffer == NULL) {
+        s_framebuffer = epd_hl_get_framebuffer(&s_highlevel);
+    }
+
+    draw_bitmap(
+        s_framebuffer,
+        bitmap,
+        bitmap_width,
+        bitmap_height,
+        bitmap_x,
+        bitmap_y
+    );
+
+    return 0;
+}
+
+int papers3_display_draw_rect(
+    int x,
+    int y,
+    int width,
+    int height,
+    int fill_color,
+    int stroke_color
+) {
+    int init_result = ensure_initialized();
+    if (init_result != 0) {
+        return init_result;
+    }
+
+    if (s_framebuffer == NULL) {
+        s_framebuffer = epd_hl_get_framebuffer(&s_highlevel);
+    }
+
+    EpdRect rect = {
+        .x = x,
+        .y = y,
+        .width = width,
+        .height = height,
+    };
+
+    if (fill_color >= 0) {
+        epd_fill_rect(rect, (uint8_t)fill_color, s_framebuffer);
+    }
+
+    if (stroke_color >= 0) {
+        epd_draw_rect(rect, (uint8_t)stroke_color, s_framebuffer);
+    }
+
+    return 0;
+}
+
+int papers3_display_commit(void) {
+    int init_result = ensure_initialized();
+    if (init_result != 0) {
+        return init_result;
+    }
+
+    epd_poweron();
+    int temperature = (int)epd_ambient_temperature();
+    int err = check_draw_error(epd_hl_update_screen(&s_highlevel, MODE_GC16, temperature));
+    epd_poweroff();
+
+    return err;
 }
 
 static void draw_bitmap(
@@ -244,15 +372,10 @@ int papers3_display_render_scene(
     int width,
     int height
 ) {
-    if (!s_initialized) {
-        int init_result = papers3_display_init();
-        if (init_result != 0) {
-            return init_result;
-        }
+    int init_result = papers3_display_begin();
+    if (init_result != 0) {
+        return init_result;
     }
-
-    uint8_t* framebuffer = epd_hl_get_framebuffer(&s_highlevel);
-    epd_hl_set_all_white(&s_highlevel);
 
     EpdRect rect = {
         .x = x,
@@ -261,25 +384,19 @@ int papers3_display_render_scene(
         .height = height,
     };
 
-    epd_fill_rect(rect, 0xD0, framebuffer);
-    epd_draw_rect(rect, 0x00, framebuffer);
+    epd_fill_rect(rect, 0xD0, s_framebuffer);
+    epd_draw_rect(rect, 0x00, s_framebuffer);
 
-    draw_text(framebuffer, x + 16, y + 16, text, 0x00);
+    draw_text(s_framebuffer, x + 16, y + 16, text, 0x00);
     draw_bitmap(
-        framebuffer,
+        s_framebuffer,
         bitmap,
         bitmap_width,
         bitmap_height,
         bitmap_x,
         bitmap_y
     );
-
-    epd_poweron();
-    int temperature = (int)epd_ambient_temperature();
-    int err = check_draw_error(epd_hl_update_screen(&s_highlevel, MODE_GC16, temperature));
-    epd_poweroff();
-
-    return err;
+    return papers3_display_commit();
 }
 
 void papers3_display_deinit(void) {
@@ -289,4 +406,5 @@ void papers3_display_deinit(void) {
 
     epd_deinit();
     s_initialized = false;
+    s_framebuffer = NULL;
 }

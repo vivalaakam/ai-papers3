@@ -4,11 +4,11 @@ use alloc::string::String;
 use core::convert::TryInto;
 use core::net::Ipv4Addr;
 
-use esp_idf_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::hal::modem::WifiModemPeripheral;
 use esp_idf_svc::hal::peripheral::Peripheral;
 use esp_idf_svc::nvs::EspDefaultNvsPartition;
+use esp_idf_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 use esp_idf_svc::wifi::{BlockingWifi, EspWifi};
 use log::info;
 
