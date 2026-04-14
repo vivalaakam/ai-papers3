@@ -1,7 +1,16 @@
 #![no_std]
 extern crate alloc;
 
-use ai_papers3::{Clock, Config, MainAppError, load_image, read_file, set_display_rotation, show_scene};
+use ai_papers3::{
+    Clock,
+    Config,
+    MainAppError,
+    load_image,
+    read_file,
+    set_display_font_size,
+    set_display_rotation,
+    show_scene,
+};
 use embedded_sdmmc::{SdCard,  VolumeManager};
 use esp_idf_hal::peripherals;
 use esp_idf_hal::spi::{SPI2, SpiDeviceDriver, SpiDriver, SpiDriverConfig, config};
@@ -29,6 +38,10 @@ fn main() -> Result<(), MainAppError> {
 
     if let Err(err) = set_display_rotation(270) {
         info!("Display rotation error: {}", err);
+    }
+
+    if let Err(err) = set_display_font_size(18) {
+        info!("Display font size error: {}", err);
     }
 
     show_loading_stage("Загрузка 1/3\nИнициализация SPI", &mut loading_text);
@@ -125,11 +138,9 @@ fn main() -> Result<(), MainAppError> {
 
     info!("Config: {:?}", config);
 
-    if let Some(rotation) = config.display_rotation_degrees {
-        if let Err(err) = set_display_rotation(rotation) {
-            info!("Display rotation error: {}", err);
-        }
-    }
+    let rotation = config.display_rotation_degrees.unwrap_or_else(|| 270);
+
+    let font_size = config.display_font_size.unwrap_or_else(|| 18);
 
     if let Err(err) = show_scene("Готово\nai-papers3\nСцена загружена", image.as_ref()) {
         info!("Display error: {}", err);

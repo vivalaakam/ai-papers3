@@ -5,6 +5,7 @@ pub struct Config {
     pub backend_url: String,
     pub networks: Vec<WifiNetwork>,
     pub display_rotation_degrees: Option<i32>,
+    pub display_font_size: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]
