@@ -2,11 +2,11 @@
 extern crate alloc;
 
 use ai_papers3::{
-    Clock, Config, EmbeddedDisplay, Gt911, MainAppError, TouchEvent, TouchTracker,
-    connect_wifi_networks, load_image, read_file, set_display_rotation,
+    Clock, Config, EmbeddedDisplay, Gt911, MainAppError, ScaledDisplay, TouchEvent,
+    TouchTracker, connect_wifi_networks, load_image, read_file, set_display_rotation,
 };
 use alloc::string::ToString;
-use embedded_graphics::mono_font::iso_8859_5::FONT_9X15;
+use embedded_graphics::mono_font::iso_8859_5::FONT_9X18;
 use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::pixelcolor::Gray4;
 use embedded_graphics::prelude::*;
@@ -24,9 +24,10 @@ const SLEEP_IDLE_MS: u32 = 30_000;
 
 fn render_status(display: &mut EmbeddedDisplay, text: &str) {
     display.clear(Gray4::WHITE);
-    let style = MonoTextStyle::new(&FONT_9X15, Gray4::BLACK);
-    let text = Text::with_baseline(text, Point::new(16, 16), style, Baseline::Top);
-    let _ = text.draw(display);
+    let style = MonoTextStyle::new(&FONT_9X18, Gray4::BLACK);
+    let mut scaled = ScaledDisplay::new(display, 2);
+    let text = Text::with_baseline(text, Point::new(8, 8), style, Baseline::Top);
+    let _ = text.draw(&mut scaled);
     if let Err(err) = display.flush() {
         info!("Display commit error: {}", err);
     }

@@ -84,6 +84,10 @@ impl EmbeddedDisplay {
         Self::fill_buffer(&mut self.buffer, color);
     }
 
+    pub fn scaled(&mut self, scale: i32) -> ScaledDisplay<'_> {
+        ScaledDisplay::new(self, scale)
+    }
+
     pub fn flush(&mut self) -> Result<(), i32> {
         let result = unsafe {
             papers3_display_present(
@@ -176,6 +180,49 @@ impl DrawTarget for EmbeddedDisplay {
 impl OriginDimensions for EmbeddedDisplay {
     fn size(&self) -> Size {
         Size::new(self.logical_width as u32, self.logical_height as u32)
+    }
+}
+
+pub struct ScaledDisplay<'a> {
+    inner: &'a mut EmbeddedDisplay,
+    scale: i32,
+}
+
+impl<'a> ScaledDisplay<'a> {
+    pub fn new(inner: &'a mut EmbeddedDisplay, scale: i32) -> Self {
+        let scale = if scale < 1 { 1 } else { scale };
+        Self { inner, scale }
+    }
+}
+
+impl DrawTarget for ScaledDisplay<'_> {
+    type Color = Gray4;
+    type Error = Infallible;
+
+    fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
+    where
+        I: IntoIterator<Item = Pixel<Self::Color>>,
+    {
+        let scale = self.scale;
+        for Pixel(point, color) in pixels {
+            let base_x = point.x * scale;
+            let base_y = point.y * scale;
+            for dy in 0..scale {
+                for dx in 0..scale {
+                    self.inner
+                        .set_pixel_nibble(base_x + dx, base_y + dy, color.luma());
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl OriginDimensions for ScaledDisplay<'_> {
+    fn size(&self) -> Size {
+        let width = (self.inner.logical_width / self.scale).max(1) as u32;
+        let height = (self.inner.logical_height / self.scale).max(1) as u32;
+        Size::new(width, height)
     }
 }
 
