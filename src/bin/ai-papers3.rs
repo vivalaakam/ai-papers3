@@ -2,14 +2,17 @@
 extern crate alloc;
 
 use ai_papers3::{
-    Clock, Config, MainAppError, connect_wifi_networks, display_begin, display_commit,
+    Clock, Config, Gt911, MainAppError, connect_wifi_networks, display_begin, display_commit,
     display_draw_text, load_image, read_file, set_display_font_size, set_display_rotation,
 };
 use alloc::string::ToString;
 use embedded_sdmmc::{SdCard, VolumeManager};
+use esp_idf_hal::delay::FreeRtos;
+use esp_idf_hal::gpio::PinDriver;
+use esp_idf_hal::i2c::{I2cConfig, I2cDriver};
 use esp_idf_hal::peripherals;
 use esp_idf_hal::spi::{SPI2, SpiDeviceDriver, SpiDriver, SpiDriverConfig, config};
-use esp_idf_hal::units::MegaHertz;
+use esp_idf_hal::units::{KiloHertz, MegaHertz};
 use log::info;
 
 fn render_status(text: &str) {
@@ -161,5 +164,47 @@ fn main() -> Result<(), MainAppError> {
 
     info!("Hello, world!");
 
-    Ok(())
+    let i2c_config = I2cConfig::new().baudrate(KiloHertz(400).into());
+    let mut i2c = match I2cDriver::new(peripherals.i2c0, gpios.gpio41, gpios.gpio42, &i2c_config) {
+        Ok(data) => data,
+        Err(err) => {
+            info!("I2C init error: {}", err);
+            return Ok(());
+        }
+    };
+
+    let touch_address = match Gt911::detect_address(&mut i2c) {
+        Some(address) => address,
+        None => {
+            info!("GT911 not found on I2C bus");
+            return Ok(());
+        }
+    };
+
+    let mut touch = Gt911::new(i2c, touch_address);
+
+    let touch_int = match PinDriver::input(gpios.gpio48) {
+        Ok(data) => data,
+        Err(err) => {
+            info!("Touch INT pin error: {}", err);
+            return Ok(());
+        }
+    };
+
+    loop {
+        if touch_int.is_low() {
+            match touch.read_touch() {
+                Ok(Some(point)) => {
+                    let text = alloc::format!("Touch:\nX: {}\nY: {}", point.x, point.y);
+                    render_status(text.as_str());
+                }
+                Ok(None) => {}
+                Err(err) => {
+                    info!("Touch read error: {}", err);
+                }
+            }
+        }
+
+        FreeRtos::delay_ms(50);
+    }
 }

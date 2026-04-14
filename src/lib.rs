@@ -6,6 +6,7 @@ mod display;
 mod enums;
 mod file;
 mod image;
+mod touch;
 mod wifi;
 
 pub use clock::Clock;
@@ -17,4 +18,5 @@ pub use display::{
 pub use enums::MainAppError;
 pub use file::read_file;
 pub use image::{BmpImage, load_image};
+pub use touch::{Gt911, TouchPoint};
 pub use wifi::{WifiConnection, connect_wifi_networks};
