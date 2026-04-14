@@ -4,6 +4,7 @@ use serde::Deserialize;
 pub struct Config {
     pub backend_url: String,
     pub networks: Vec<WifiNetwork>,
+    pub display_rotation_degrees: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]

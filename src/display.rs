@@ -5,6 +5,7 @@ use crate::BmpImage;
 
 unsafe extern "C" {
     fn papers3_display_init() -> i32;
+    fn papers3_display_set_rotation(rotation_degrees: i32) -> i32;
     fn papers3_display_render_scene(
         text: *const c_char,
         bitmap: *const u8,
@@ -17,6 +18,15 @@ unsafe extern "C" {
         width: i32,
         height: i32,
     ) -> i32;
+}
+
+pub fn set_display_rotation(rotation_degrees: i32) -> Result<(), i32> {
+    let result = unsafe { papers3_display_set_rotation(rotation_degrees) };
+    if result == 0 {
+        Ok(())
+    } else {
+        Err(result)
+    }
 }
 
 pub fn show_scene(text: &str, image: Option<&BmpImage>) -> Result<(), i32> {

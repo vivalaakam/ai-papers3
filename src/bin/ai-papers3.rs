@@ -1,17 +1,37 @@
 #![no_std]
 extern crate alloc;
 
-use ai_papers3::{Clock, Config, MainAppError, load_image, read_file, show_scene};
+use ai_papers3::{Clock, Config, MainAppError, load_image, read_file, set_display_rotation, show_scene};
 use embedded_sdmmc::{SdCard,  VolumeManager};
 use esp_idf_hal::peripherals;
 use esp_idf_hal::spi::{SPI2, SpiDeviceDriver, SpiDriver, SpiDriverConfig, config};
 use esp_idf_hal::units::MegaHertz;
 use log::info;
 
+fn show_loading_stage(stage: &str, accumulated: &mut alloc::string::String) {
+    info!("{}", stage);
+    if !accumulated.is_empty() {
+        accumulated.push('\n');
+    }
+    accumulated.push_str(stage);
+
+    if let Err(err) = show_scene(accumulated.as_str(), None) {
+        info!("Display error: {}", err);
+    }
+}
+
 fn main() -> Result<(), MainAppError> {
     esp_idf_svc::sys::link_patches();
 
     esp_idf_svc::log::EspLogger::initialize_default();
+
+    let mut loading_text = alloc::string::String::new();
+
+    if let Err(err) = set_display_rotation(270) {
+        info!("Display rotation error: {}", err);
+    }
+
+    show_loading_stage("Загрузка 1/3\nИнициализация SPI", &mut loading_text);
 
     let peripherals = peripherals::Peripherals::take().unwrap();
     let gpios = peripherals.pins;
@@ -45,6 +65,8 @@ fn main() -> Result<(), MainAppError> {
 
     info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
 
+    show_loading_stage("Загрузка 2/3\nИнициализация SD", &mut loading_text);
+
     let volume_mgr = VolumeManager::new(sdcard, Clock);
 
     let volume0 = match volume_mgr.open_volume(embedded_sdmmc::VolumeIdx(0)) {
@@ -56,6 +78,8 @@ fn main() -> Result<(), MainAppError> {
     };
 
     info!("Volume 0: {:?}", volume0);
+
+    show_loading_stage("Загрузка 3/3\nЧтение файлов", &mut loading_text);
 
     let root_dir = match volume0.open_root_dir() {
         Ok(data) => data,
@@ -101,7 +125,13 @@ fn main() -> Result<(), MainAppError> {
 
     info!("Config: {:?}", config);
 
-    if let Err(err) = show_scene("ai-papers3\nDisplay demo\ntext + rect", image.as_ref()) {
+    if let Some(rotation) = config.display_rotation_degrees {
+        if let Err(err) = set_display_rotation(rotation) {
+            info!("Display rotation error: {}", err);
+        }
+    }
+
+    if let Err(err) = show_scene("Готово\nai-papers3\nСцена загружена", image.as_ref()) {
         info!("Display error: {}", err);
     }
 

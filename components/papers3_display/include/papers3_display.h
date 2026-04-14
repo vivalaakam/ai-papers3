@@ -7,6 +7,7 @@ extern "C" {
 #endif
 
 int papers3_display_init(void);
+int papers3_display_set_rotation(int rotation_degrees);
 int papers3_display_render_scene(
     const char* text,
     const uint8_t* bitmap,
