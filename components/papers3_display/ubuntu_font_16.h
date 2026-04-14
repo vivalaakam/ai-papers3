@@ -195,6 +195,7 @@ static const uint8_t ubuntu_16_bitmap[] = {
 };
 
 static const FontGlyph ubuntu_16_glyphs[] = {
+    { 0x0020, 0, 0, 0, 0, 4, 0 },
     { 0x0021, 1, 11, 1, -11, 4, 0 },
     { 0x0022, 4, 4, 1, -13, 7, 11 },
     { 0x0023, 9, 11, 1, -11, 11, 15 },
@@ -362,7 +363,7 @@ static const FontFace ubuntu_16_font = {
     15,
     4,
     23,
-    160,
+    161,
     ubuntu_16_glyphs,
     ubuntu_16_bitmap,
 };

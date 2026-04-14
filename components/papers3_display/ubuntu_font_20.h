@@ -303,6 +303,7 @@ static const uint8_t ubuntu_20_bitmap[] = {
 };
 
 static const FontGlyph ubuntu_20_glyphs[] = {
+    { 0x0020, 0, 0, 0, 0, 5, 0 },
     { 0x0021, 2, 14, 2, -14, 6, 0 },
     { 0x0022, 6, 5, 2, -16, 8, 14 },
     { 0x0023, 11, 14, 1, -14, 13, 19 },
@@ -470,7 +471,7 @@ static const FontFace ubuntu_20_font = {
     19,
     4,
     28,
-    160,
+    161,
     ubuntu_20_glyphs,
     ubuntu_20_bitmap,
 };

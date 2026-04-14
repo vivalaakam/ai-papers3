@@ -362,6 +362,7 @@ static const uint8_t ubuntu_22_bitmap[] = {
 };
 
 static const FontGlyph ubuntu_22_glyphs[] = {
+    { 0x0020, 0, 0, 0, 0, 5, 0 },
     { 0x0021, 2, 15, 2, -15, 6, 0 },
     { 0x0022, 6, 6, 2, -17, 9, 15 },
     { 0x0023, 13, 15, 1, -15, 15, 21 },
@@ -529,7 +530,7 @@ static const FontFace ubuntu_22_font = {
     21,
     5,
     32,
-    160,
+    161,
     ubuntu_22_glyphs,
     ubuntu_22_bitmap,
 };

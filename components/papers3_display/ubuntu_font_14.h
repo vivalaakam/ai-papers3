@@ -154,6 +154,7 @@ static const uint8_t ubuntu_14_bitmap[] = {
 };
 
 static const FontGlyph ubuntu_14_glyphs[] = {
+    { 0x0020, 0, 0, 0, 0, 3, 0 },
     { 0x0021, 1, 10, 1, -10, 4, 0 },
     { 0x0022, 3, 4, 1, -11, 6, 10 },
     { 0x0023, 7, 10, 1, -10, 9, 14 },
@@ -321,7 +322,7 @@ static const FontFace ubuntu_14_font = {
     14,
     3,
     21,
-    160,
+    161,
     ubuntu_14_glyphs,
     ubuntu_14_bitmap,
 };

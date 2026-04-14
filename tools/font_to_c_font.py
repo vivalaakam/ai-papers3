@@ -28,7 +28,16 @@ def render_glyph(font, codepoint, ascent, descent):
 
     bbox = canvas.getbbox()
     if bbox is None:
-        return None
+        x_advance = int(round(font.getlength(char)))
+        return {
+            "codepoint": codepoint,
+            "width": 0,
+            "height": 0,
+            "x_offset": 0,
+            "y_offset": 0,
+            "x_advance": x_advance,
+            "bitmap": [],
+        }
 
     glyph_image = canvas.crop(bbox)
     width, height = glyph_image.size
