@@ -23,20 +23,12 @@ unsafe extern "C" {
 
 pub fn set_display_font_size(font_size: i32) -> Result<(), i32> {
     let result = unsafe { papers3_display_set_font_size(font_size) };
-    if result == 0 {
-        Ok(())
-    } else {
-        Err(result)
-    }
+    if result == 0 { Ok(()) } else { Err(result) }
 }
 
 pub fn set_display_rotation(rotation_degrees: i32) -> Result<(), i32> {
     let result = unsafe { papers3_display_set_rotation(rotation_degrees) };
-    if result == 0 {
-        Ok(())
-    } else {
-        Err(result)
-    }
+    if result == 0 { Ok(()) } else { Err(result) }
 }
 
 pub fn show_scene(text: &str, image: Option<&BmpImage>) -> Result<(), i32> {

@@ -2,16 +2,10 @@
 extern crate alloc;
 
 use ai_papers3::{
-    Clock,
-    Config,
-    MainAppError,
-    load_image,
-    read_file,
-    set_display_font_size,
-    set_display_rotation,
-    show_scene,
+    Clock, Config, MainAppError, connect_wifi_networks, load_image, read_file,
+    set_display_font_size, set_display_rotation, show_scene,
 };
-use embedded_sdmmc::{SdCard,  VolumeManager};
+use embedded_sdmmc::{SdCard, VolumeManager};
 use esp_idf_hal::peripherals;
 use esp_idf_hal::spi::{SPI2, SpiDeviceDriver, SpiDriver, SpiDriverConfig, config};
 use esp_idf_hal::units::MegaHertz;
@@ -44,9 +38,10 @@ fn main() -> Result<(), MainAppError> {
         info!("Display font size error: {}", err);
     }
 
-    show_loading_stage("Загрузка 1/3\nИнициализация SPI", &mut loading_text);
+    show_loading_stage("Загрузка 1/4\nИнициализация SPI", &mut loading_text);
 
     let peripherals = peripherals::Peripherals::take().unwrap();
+    let modem = peripherals.modem;
     let gpios = peripherals.pins;
 
     // Initialize SPI interface
@@ -78,7 +73,7 @@ fn main() -> Result<(), MainAppError> {
 
     info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
 
-    show_loading_stage("Загрузка 2/3\nИнициализация SD", &mut loading_text);
+    show_loading_stage("Загрузка 2/4\nИнициализация SD", &mut loading_text);
 
     let volume_mgr = VolumeManager::new(sdcard, Clock);
 
@@ -92,7 +87,7 @@ fn main() -> Result<(), MainAppError> {
 
     info!("Volume 0: {:?}", volume0);
 
-    show_loading_stage("Загрузка 3/3\nЧтение файлов", &mut loading_text);
+    show_loading_stage("Загрузка 3/4\nЧтение файлов", &mut loading_text);
 
     let root_dir = match volume0.open_root_dir() {
         Ok(data) => data,
@@ -138,11 +133,18 @@ fn main() -> Result<(), MainAppError> {
 
     info!("Config: {:?}", config);
 
-    let rotation = config.display_rotation_degrees.unwrap_or_else(|| 270);
+    show_loading_stage("Загрузка 4/4\nПодключение WiFi", &mut loading_text);
 
-    let font_size = config.display_font_size.unwrap_or_else(|| 18);
+    let wifi_connection = connect_wifi_networks(modem, &config.networks);
 
-    if let Err(err) = show_scene("Готово\nai-papers3\nСцена загружена", image.as_ref()) {
+    let status_text = match wifi_connection.as_ref() {
+        Some(connection) => {
+            alloc::format!("Готово\nWiFi: {}\nIP: {}", connection.ssid, connection.ip)
+        }
+        None => alloc::format!("Готово\nWiFi: нет сети\nIP: --"),
+    };
+
+    if let Err(err) = show_scene(status_text.as_str(), image.as_ref()) {
         info!("Display error: {}", err);
     }
 

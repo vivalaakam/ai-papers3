@@ -30,6 +30,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_yaml = "0.9.34"
 thiserror = "2.0.18"
 miniz_oxide = { version = "0.8.9", default-features = false, features = ["with-alloc"] }
+heapless = "0.8.0"
 
 [build-dependencies]
 embuild = "0.33"
