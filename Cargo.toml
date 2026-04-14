@@ -27,6 +27,18 @@ embedded-sdmmc = "0.9.0"
 chrono = "0.4.44"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_yaml = "0.9.34"
+thiserror = "2.0.18"
+miniz_oxide = { version = "0.8.9", default-features = false, features = ["with-alloc"] }
 
 [build-dependencies]
 embuild = "0.33"
+
+[package.metadata.esp-idf-sys]
+esp_idf_version = "v5.3.1"
+extra_components = [
+    { component_dirs = ["components"] },
+    { remote_component = { name = "epdiy", version = "*", git = "https://github.com/jslawek/epdiy.git" } },
+]
+
+[patch.crates-io]
+esp-idf-hal = { path = "vendor/esp-idf-hal" }

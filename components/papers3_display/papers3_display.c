@@ -1,0 +1,223 @@
+#include "papers3_display.h"
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#include <esp_log.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
+#include <epdiy.h>
+
+static const char* TAG = "papers3_display";
+static EpdiyHighlevelState s_highlevel;
+static bool s_initialized = false;
+
+typedef struct {
+    char ch;
+    uint8_t rows[7];
+} Glyph;
+
+static const Glyph GLYPHS[] = {
+    { ' ', { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } },
+    { '+', { 0x00, 0x04, 0x04, 0x1F, 0x04, 0x04, 0x00 } },
+    { '-', { 0x00, 0x00, 0x00, 0x1F, 0x00, 0x00, 0x00 } },
+    { '.', { 0x00, 0x00, 0x00, 0x00, 0x00, 0x0C, 0x0C } },
+    { '/', { 0x01, 0x02, 0x04, 0x08, 0x10, 0x00, 0x00 } },
+    { ':', { 0x00, 0x0C, 0x0C, 0x00, 0x0C, 0x0C, 0x00 } },
+    { '0', { 0x0E, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0E } },
+    { '1', { 0x04, 0x0C, 0x04, 0x04, 0x04, 0x04, 0x0E } },
+    { '2', { 0x0E, 0x11, 0x01, 0x06, 0x08, 0x10, 0x1F } },
+    { '3', { 0x1E, 0x01, 0x01, 0x0E, 0x01, 0x01, 0x1E } },
+    { '4', { 0x02, 0x06, 0x0A, 0x12, 0x1F, 0x02, 0x02 } },
+    { '5', { 0x1F, 0x10, 0x10, 0x1E, 0x01, 0x01, 0x1E } },
+    { '6', { 0x0E, 0x10, 0x10, 0x1E, 0x11, 0x11, 0x0E } },
+    { '7', { 0x1F, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08 } },
+    { '8', { 0x0E, 0x11, 0x11, 0x0E, 0x11, 0x11, 0x0E } },
+    { '9', { 0x0E, 0x11, 0x11, 0x0F, 0x01, 0x01, 0x0E } },
+    { '_', { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1F } },
+    { 'a', { 0x00, 0x00, 0x0E, 0x01, 0x0F, 0x11, 0x0F } },
+    { 'b', { 0x10, 0x10, 0x1E, 0x11, 0x11, 0x11, 0x1E } },
+    { 'c', { 0x00, 0x00, 0x0E, 0x10, 0x10, 0x10, 0x0E } },
+    { 'd', { 0x01, 0x01, 0x0F, 0x11, 0x11, 0x11, 0x0F } },
+    { 'e', { 0x00, 0x00, 0x0E, 0x11, 0x1F, 0x10, 0x0E } },
+    { 'f', { 0x06, 0x08, 0x08, 0x1E, 0x08, 0x08, 0x08 } },
+    { 'g', { 0x00, 0x0F, 0x11, 0x11, 0x0F, 0x01, 0x0E } },
+    { 'h', { 0x10, 0x10, 0x1E, 0x11, 0x11, 0x11, 0x11 } },
+    { 'i', { 0x04, 0x00, 0x0C, 0x04, 0x04, 0x04, 0x0E } },
+    { 'l', { 0x0C, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E } },
+    { 'm', { 0x00, 0x00, 0x1A, 0x15, 0x15, 0x15, 0x15 } },
+    { 'n', { 0x00, 0x00, 0x1E, 0x11, 0x11, 0x11, 0x11 } },
+    { 'o', { 0x00, 0x00, 0x0E, 0x11, 0x11, 0x11, 0x0E } },
+    { 'p', { 0x00, 0x00, 0x1E, 0x11, 0x11, 0x1E, 0x10 } },
+    { 'r', { 0x00, 0x00, 0x16, 0x19, 0x10, 0x10, 0x10 } },
+    { 's', { 0x00, 0x00, 0x0F, 0x10, 0x0E, 0x01, 0x1E } },
+    { 't', { 0x08, 0x08, 0x1E, 0x08, 0x08, 0x08, 0x06 } },
+    { 'u', { 0x00, 0x00, 0x11, 0x11, 0x11, 0x13, 0x0D } },
+    { 'x', { 0x00, 0x00, 0x11, 0x0A, 0x04, 0x0A, 0x11 } },
+    { 'y', { 0x00, 0x00, 0x11, 0x11, 0x0F, 0x01, 0x0E } },
+    { 'A', { 0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11 } },
+    { 'B', { 0x1E, 0x11, 0x11, 0x1E, 0x11, 0x11, 0x1E } },
+    { 'C', { 0x0E, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0E } },
+    { 'D', { 0x1C, 0x12, 0x11, 0x11, 0x11, 0x12, 0x1C } },
+    { 'E', { 0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x1F } },
+    { 'F', { 0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x10 } },
+    { 'I', { 0x0E, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E } },
+    { 'P', { 0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10 } },
+    { 'S', { 0x0F, 0x10, 0x10, 0x0E, 0x01, 0x01, 0x1E } },
+    { 'T', { 0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04 } },
+    { 'U', { 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E } },
+};
+
+static const Glyph* find_glyph(char ch) {
+    for (size_t i = 0; i < sizeof(GLYPHS) / sizeof(GLYPHS[0]); i++) {
+        if (GLYPHS[i].ch == ch) {
+            return &GLYPHS[i];
+        }
+    }
+
+    return NULL;
+}
+
+static void draw_glyph(uint8_t* framebuffer, int x, int y, char ch, uint8_t color) {
+    const Glyph* glyph = find_glyph(ch);
+    if (glyph == NULL) {
+        glyph = find_glyph(' ');
+    }
+
+    for (int row = 0; row < 7; row++) {
+        for (int col = 0; col < 5; col++) {
+            if ((glyph->rows[row] >> (4 - col)) & 0x01) {
+                epd_draw_pixel(x + col, y + row, color, framebuffer);
+            }
+        }
+    }
+}
+
+static void draw_text(uint8_t* framebuffer, int x, int y, const char* text, uint8_t color) {
+    int cursor_x = x;
+    int cursor_y = y;
+
+    for (const char* p = text; *p != '\0'; ++p) {
+        if (*p == '\n') {
+            cursor_x = x;
+            cursor_y += 10;
+            continue;
+        }
+
+        draw_glyph(framebuffer, cursor_x, cursor_y, *p, color);
+        cursor_x += 6;
+    }
+}
+
+static void draw_bitmap(
+    uint8_t* framebuffer,
+    const uint8_t* bitmap,
+    int bitmap_width,
+    int bitmap_height,
+    int bitmap_x,
+    int bitmap_y
+) {
+    if (bitmap == NULL || bitmap_width <= 0 || bitmap_height <= 0) {
+        return;
+    }
+
+    for (int row = 0; row < bitmap_height; row++) {
+        for (int col = 0; col < bitmap_width; col++) {
+            epd_draw_pixel(
+                bitmap_x + col,
+                bitmap_y + row,
+                bitmap[row * bitmap_width + col],
+                framebuffer
+            );
+        }
+    }
+}
+
+static int check_draw_error(enum EpdDrawError err) {
+    if (err != EPD_DRAW_SUCCESS) {
+        ESP_LOGE(TAG, "draw error: 0x%x", err);
+        return (int)err;
+    }
+
+    return 0;
+}
+
+int papers3_display_init(void) {
+    if (s_initialized) {
+        return 0;
+    }
+
+    epd_init(&epd_board_m5papers3, &ED047TC2, EPD_LUT_64K);
+    s_highlevel = epd_hl_init(EPD_BUILTIN_WAVEFORM);
+    epd_set_rotation(EPD_ROT_LANDSCAPE);
+
+    epd_poweron();
+    epd_clear();
+    vTaskDelay(pdMS_TO_TICKS(500));
+    epd_clear();
+    epd_poweroff();
+
+    s_initialized = true;
+    return 0;
+}
+
+int papers3_display_render_scene(
+    const char* text,
+    const uint8_t* bitmap,
+    int bitmap_width,
+    int bitmap_height,
+    int bitmap_x,
+    int bitmap_y,
+    int x,
+    int y,
+    int width,
+    int height
+) {
+    if (!s_initialized) {
+        int init_result = papers3_display_init();
+        if (init_result != 0) {
+            return init_result;
+        }
+    }
+
+    uint8_t* framebuffer = epd_hl_get_framebuffer(&s_highlevel);
+    epd_hl_set_all_white(&s_highlevel);
+
+    EpdRect rect = {
+        .x = x,
+        .y = y,
+        .width = width,
+        .height = height,
+    };
+
+    epd_fill_rect(rect, 0xD0, framebuffer);
+    epd_draw_rect(rect, 0x00, framebuffer);
+
+    draw_text(framebuffer, x + 16, y + 16, text, 0x00);
+    draw_bitmap(
+        framebuffer,
+        bitmap,
+        bitmap_width,
+        bitmap_height,
+        bitmap_x,
+        bitmap_y
+    );
+
+    epd_poweron();
+    int temperature = (int)epd_ambient_temperature();
+    int err = check_draw_error(epd_hl_update_screen(&s_highlevel, MODE_GC16, temperature));
+    epd_poweroff();
+
+    return err;
+}
+
+void papers3_display_deinit(void) {
+    if (!s_initialized) {
+        return;
+    }
+
+    epd_deinit();
+    s_initialized = false;
+}

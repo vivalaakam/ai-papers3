@@ -1,0 +1,18 @@
+dependencies:
+  epdiy:
+    component_hash: 4c5736dd8dff555228cc0de2516dbd4af2071deb8d36f0b0e87034b02229fa3b
+    dependencies: []
+    source:
+      git: https://github.com/jslawek/epdiy.git
+      path: .
+      type: git
+    version: b827bb08f7e8deef864aebfc58542d789ea64420
+  idf:
+    source:
+      type: idf
+    version: 5.3.1
+direct_dependencies:
+- epdiy
+manifest_hash: 37a079a000878db33d438549e6e7a6da43d945f47f01e43806dbe9c23b4f9750
+target: esp32s3
+version: 2.0.0
