@@ -2,8 +2,9 @@
 extern crate alloc;
 
 use ai_papers3::{
-    Clock, Config, Gt911, MainAppError, connect_wifi_networks, display_begin, display_commit,
-    display_draw_text, load_image, read_file, set_display_font_size, set_display_rotation,
+    Clock, Config, Gt911, MainAppError, TouchEvent, TouchTracker, connect_wifi_networks,
+    display_begin, display_commit, display_draw_text, load_image, read_file,
+    set_display_font_size, set_display_rotation,
 };
 use alloc::string::ToString;
 use embedded_sdmmc::{SdCard, VolumeManager};
@@ -182,6 +183,7 @@ fn main() -> Result<(), MainAppError> {
     };
 
     let mut touch = Gt911::new(i2c, touch_address);
+    let mut touch_tracker = TouchTracker::new(6);
 
     let touch_int = match PinDriver::input(gpios.gpio48) {
         Ok(data) => data,
@@ -194,15 +196,32 @@ fn main() -> Result<(), MainAppError> {
     loop {
         if touch_int.is_low() {
             match touch.read_touch() {
-                Ok(Some(point)) => {
-                    let text = alloc::format!("Touch:\nX: {}\nY: {}", point.x, point.y);
-                    render_status(text.as_str());
+                Ok(point) => {
+                    if let Some(event) = touch_tracker.on_sample(point) {
+                        match event {
+                            TouchEvent::Touch(point) => {
+                                let text = alloc::format!("Touch:\nX: {}\nY: {}", point.x, point.y);
+                                render_status(text.as_str());
+                            }
+                            TouchEvent::Slide { from, to } => {
+                                let text = alloc::format!(
+                                    "Slide:\n{}:{} -> {}:{}",
+                                    from.x,
+                                    from.y,
+                                    to.x,
+                                    to.y
+                                );
+                                render_status(text.as_str());
+                            }
+                        }
+                    }
                 }
-                Ok(None) => {}
                 Err(err) => {
                     info!("Touch read error: {}", err);
                 }
             }
+        } else {
+            touch_tracker.on_sample(None);
         }
 
         FreeRtos::delay_ms(50);

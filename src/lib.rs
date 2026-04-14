@@ -18,5 +18,5 @@ pub use display::{
 pub use enums::MainAppError;
 pub use file::read_file;
 pub use image::{BmpImage, load_image};
-pub use touch::{Gt911, TouchPoint};
+pub use touch::{Gt911, TouchEvent, TouchPoint, TouchTracker};
 pub use wifi::{WifiConnection, connect_wifi_networks};
