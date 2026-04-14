@@ -13,6 +13,6 @@ dependencies:
     version: 5.3.1
 direct_dependencies:
 - epdiy
-manifest_hash: 37a079a000878db33d438549e6e7a6da43d945f47f01e43806dbe9c23b4f9750
+manifest_hash: 2f906657be3ab4277424963df14a0ee985b458bfd606c8d7505679e6747113f0
 target: esp32s3
 version: 2.0.0

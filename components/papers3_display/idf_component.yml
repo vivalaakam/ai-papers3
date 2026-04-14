@@ -1,0 +1,5 @@
+dependencies:
+  epdiy:
+    git: https://github.com/jslawek/epdiy.git
+    path: .
+    version: b827bb08f7e8deef864aebfc58542d789ea64420
