@@ -27,6 +27,12 @@ int papers3_display_draw_rect(
     int stroke_color
 );
 int papers3_display_commit(void);
+int papers3_display_width(void);
+int papers3_display_height(void);
+int papers3_display_physical_width(void);
+int papers3_display_physical_height(void);
+int papers3_display_get_rotation(void);
+int papers3_display_present(const uint8_t* buffer, int width, int height);
 int papers3_display_render_scene(
     const char* text,
     const uint8_t* bitmap,

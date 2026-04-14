@@ -2,11 +2,15 @@
 extern crate alloc;
 
 use ai_papers3::{
-    Clock, Config, Gt911, MainAppError, TouchEvent, TouchTracker, connect_wifi_networks,
-    display_begin, display_commit, display_draw_text, load_image, read_file,
-    set_display_font_size, set_display_rotation,
+    Clock, Config, EmbeddedDisplay, Gt911, MainAppError, TouchEvent, TouchTracker,
+    connect_wifi_networks, load_image, read_file, set_display_rotation,
 };
 use alloc::string::ToString;
+use embedded_graphics::mono_font::iso_8859_5::FONT_9X15;
+use embedded_graphics::mono_font::MonoTextStyle;
+use embedded_graphics::pixelcolor::Gray4;
+use embedded_graphics::prelude::*;
+use embedded_graphics::text::{Baseline, Text};
 use embedded_sdmmc::{SdCard, VolumeManager};
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::gpio::PinDriver;
@@ -16,55 +20,42 @@ use esp_idf_hal::spi::{SPI2, SpiDeviceDriver, SpiDriver, SpiDriverConfig, config
 use esp_idf_hal::units::{KiloHertz, MegaHertz};
 use log::info;
 
-const DISPLAY_WIDTH: i32 = 960;
-const DISPLAY_HEIGHT: i32 = 540;
 const SLEEP_IDLE_MS: u32 = 30_000;
 
-fn render_status(text: &str) {
-    if let Err(err) = display_begin() {
-        info!("Display init error: {}", err);
-        return;
-    }
-
-    if let Err(err) = display_draw_text(text, 16, 16) {
-        info!("Display text error: {}", err);
-        return;
-    }
-
-    if let Err(err) = display_commit() {
+fn render_status(display: &mut EmbeddedDisplay, text: &str) {
+    display.clear(Gray4::WHITE);
+    let style = MonoTextStyle::new(&FONT_9X15, Gray4::BLACK);
+    let text = Text::with_baseline(text, Point::new(16, 16), style, Baseline::Top);
+    let _ = text.draw(display);
+    if let Err(err) = display.flush() {
         info!("Display commit error: {}", err);
     }
 }
 
-fn render_sleep_image(image: &ai_papers3::BmpImage) {
-    if let Err(err) = display_begin() {
-        info!("Display init error: {}", err);
-        return;
-    }
-
+fn render_sleep_image(display: &mut EmbeddedDisplay, image: &ai_papers3::BmpImage) {
+    display.clear(Gray4::WHITE);
     let image_width = image.width as i32;
     let image_height = image.height as i32;
-    let x = (DISPLAY_WIDTH - image_width) / 2;
-    let y = (DISPLAY_HEIGHT - image_height) / 2;
-
-    if let Err(err) = display_draw_bitmap(image, x, y) {
-        info!("Display bitmap error: {}", err);
-        return;
-    }
-
-    if let Err(err) = display_commit() {
+    let x = (display.width() - image_width) / 2;
+    let y = (display.height() - image_height) / 2;
+    display.draw_bitmap(image, x, y);
+    if let Err(err) = display.flush() {
         info!("Display commit error: {}", err);
     }
 }
 
-fn show_loading_stage(stage: &str, accumulated: &mut alloc::string::String) {
+fn show_loading_stage(
+    display: &mut EmbeddedDisplay,
+    stage: &str,
+    accumulated: &mut alloc::string::String,
+) {
     info!("{}", stage);
     if !accumulated.is_empty() {
         accumulated.push('\n');
     }
     accumulated.push_str(stage);
 
-    render_status(accumulated.as_str());
+    render_status(display, accumulated.as_str());
 }
 
 fn main() -> Result<(), MainAppError> {
@@ -78,11 +69,15 @@ fn main() -> Result<(), MainAppError> {
         info!("Display rotation error: {}", err);
     }
 
-    if let Err(err) = set_display_font_size(18) {
-        info!("Display font size error: {}", err);
-    }
+    let mut display = match EmbeddedDisplay::new() {
+        Ok(display) => display,
+        Err(err) => {
+            info!("Display init error: {}", err);
+            return Ok(());
+        }
+    };
 
-    show_loading_stage("Загрузка 1/4\nИнициализация SPI", &mut loading_text);
+    show_loading_stage(&mut display, "Загрузка 1/4\nИнициализация SPI", &mut loading_text);
 
     let peripherals = peripherals::Peripherals::take().unwrap();
     let modem = peripherals.modem;
@@ -117,7 +112,7 @@ fn main() -> Result<(), MainAppError> {
 
     info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
 
-    show_loading_stage("Загрузка 2/4\nИнициализация SD", &mut loading_text);
+    show_loading_stage(&mut display, "Загрузка 2/4\nИнициализация SD", &mut loading_text);
 
     let volume_mgr = VolumeManager::new(sdcard, Clock);
 
@@ -131,7 +126,7 @@ fn main() -> Result<(), MainAppError> {
 
     info!("Volume 0: {:?}", volume0);
 
-    show_loading_stage("Загрузка 3/4\nЧтение файлов", &mut loading_text);
+    show_loading_stage(&mut display, "Загрузка 3/4\nЧтение файлов", &mut loading_text);
 
     let root_dir = match volume0.open_root_dir() {
         Ok(data) => data,
@@ -177,7 +172,7 @@ fn main() -> Result<(), MainAppError> {
 
     let sleep_image = load_image(&root_dir);
 
-    show_loading_stage("Загрузка 4/4\nПодключение WiFi", &mut loading_text);
+    show_loading_stage(&mut display, "Загрузка 4/4\nПодключение WiFi", &mut loading_text);
 
     let wifi_connection = connect_wifi_networks(modem, &config.networks);
 
@@ -188,7 +183,7 @@ fn main() -> Result<(), MainAppError> {
         None => "Готово\nWiFi: нет сети\nIP: --".to_string(),
     };
 
-    render_status(status_text.as_str());
+    render_status(&mut display, status_text.as_str());
 
     info!("Hello, world!");
 
@@ -232,7 +227,7 @@ fn main() -> Result<(), MainAppError> {
                         match event {
                             TouchEvent::Touch(point) => {
                                 let text = alloc::format!("Touch:\nX: {}\nY: {}", point.x, point.y);
-                                render_status(text.as_str());
+                                render_status(&mut display, text.as_str());
                             }
                             TouchEvent::Slide { from, to } => {
                                 let text = alloc::format!(
@@ -242,7 +237,7 @@ fn main() -> Result<(), MainAppError> {
                                     to.x,
                                     to.y
                                 );
-                                render_status(text.as_str());
+                                render_status(&mut display, text.as_str());
                             }
                         }
                     }
@@ -256,7 +251,7 @@ fn main() -> Result<(), MainAppError> {
             idle_ms = idle_ms.saturating_add(50);
             if !sleep_shown && idle_ms >= SLEEP_IDLE_MS {
                 if let Some(image) = sleep_image.as_ref() {
-                    render_sleep_image(image);
+                    render_sleep_image(&mut display, image);
                     sleep_shown = true;
                 } else {
                     info!("Sleep image OUTPUT.PNG not found");
