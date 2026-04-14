@@ -1,13 +1,15 @@
 extern crate alloc;
 
-mod bmp;
 mod clock;
 mod config;
 mod display;
+mod enums;
 mod file;
+mod image;
 
-pub use bmp::{BmpImage, decode_bmp, decode_png};
 pub use clock::Clock;
 pub use config::Config;
 pub use display::show_scene;
+pub use enums::MainAppError;
 pub use file::read_file;
+pub use image::{BmpImage, load_image};

@@ -1,5 +1,8 @@
+use crate::read_file;
 use alloc::vec;
 use alloc::vec::Vec;
+use embedded_sdmmc::{BlockDevice, Directory, TimeSource};
+use log::info;
 use miniz_oxide::inflate::decompress_to_vec_zlib_with_limit;
 
 pub struct BmpImage {
@@ -287,4 +290,25 @@ pub fn decode_png(data: &[u8]) -> Result<BmpImage, &'static str> {
         height,
         pixels,
     })
+}
+
+pub fn load_image<
+    D: BlockDevice,
+    T: TimeSource,
+    const MAX_DIRS: usize,
+    const MAX_FILES: usize,
+    const MAX_VOLUMES: usize,
+>(
+    root_dir: &Directory<'_, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
+) -> Option<BmpImage> {
+    let Some(png_data) = read_file(root_dir, "OUTPUT.PNG") else {
+        return None;
+    };
+
+    let Ok(image) = decode_png(&png_data) else {
+        info!("PNG decode error");
+        return None;
+    };
+
+    Some(image)
 }

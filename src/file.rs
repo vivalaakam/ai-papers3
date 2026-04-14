@@ -1,5 +1,5 @@
-use embedded_sdmmc::{BlockDevice, Directory, Mode, TimeSource};
 use alloc::vec::Vec;
+use embedded_sdmmc::{BlockDevice, Directory, Mode, TimeSource};
 use log::info;
 
 pub fn read_file<
