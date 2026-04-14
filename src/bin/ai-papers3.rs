@@ -16,6 +16,10 @@ use esp_idf_hal::spi::{SPI2, SpiDeviceDriver, SpiDriver, SpiDriverConfig, config
 use esp_idf_hal::units::{KiloHertz, MegaHertz};
 use log::info;
 
+const DISPLAY_WIDTH: i32 = 960;
+const DISPLAY_HEIGHT: i32 = 540;
+const SLEEP_IDLE_MS: u32 = 30_000;
+
 fn render_status(text: &str) {
     if let Err(err) = display_begin() {
         info!("Display init error: {}", err);
@@ -24,6 +28,27 @@ fn render_status(text: &str) {
 
     if let Err(err) = display_draw_text(text, 16, 16) {
         info!("Display text error: {}", err);
+        return;
+    }
+
+    if let Err(err) = display_commit() {
+        info!("Display commit error: {}", err);
+    }
+}
+
+fn render_sleep_image(image: &ai_papers3::BmpImage) {
+    if let Err(err) = display_begin() {
+        info!("Display init error: {}", err);
+        return;
+    }
+
+    let image_width = image.width as i32;
+    let image_height = image.height as i32;
+    let x = (DISPLAY_WIDTH - image_width) / 2;
+    let y = (DISPLAY_HEIGHT - image_height) / 2;
+
+    if let Err(err) = display_draw_bitmap(image, x, y) {
+        info!("Display bitmap error: {}", err);
         return;
     }
 
@@ -150,6 +175,8 @@ fn main() -> Result<(), MainAppError> {
 
     info!("Config: {:?}", config);
 
+    let sleep_image = load_image(&root_dir);
+
     show_loading_stage("Загрузка 4/4\nПодключение WiFi", &mut loading_text);
 
     let wifi_connection = connect_wifi_networks(modem, &config.networks);
@@ -184,6 +211,8 @@ fn main() -> Result<(), MainAppError> {
 
     let mut touch = Gt911::new(i2c, touch_address);
     let mut touch_tracker = TouchTracker::new(6);
+    let mut idle_ms: u32 = 0;
+    let mut sleep_shown = false;
 
     let touch_int = match PinDriver::input(gpios.gpio48) {
         Ok(data) => data,
@@ -198,6 +227,8 @@ fn main() -> Result<(), MainAppError> {
             match touch.read_touch() {
                 Ok(point) => {
                     if let Some(event) = touch_tracker.on_sample(point) {
+                        idle_ms = 0;
+                        sleep_shown = false;
                         match event {
                             TouchEvent::Touch(point) => {
                                 let text = alloc::format!("Touch:\nX: {}\nY: {}", point.x, point.y);
@@ -222,6 +253,16 @@ fn main() -> Result<(), MainAppError> {
             }
         } else {
             touch_tracker.on_sample(None);
+            idle_ms = idle_ms.saturating_add(50);
+            if !sleep_shown && idle_ms >= SLEEP_IDLE_MS {
+                if let Some(image) = sleep_image.as_ref() {
+                    render_sleep_image(image);
+                    sleep_shown = true;
+                } else {
+                    info!("Sleep image OUTPUT.PNG not found");
+                    sleep_shown = true;
+                }
+            }
         }
 
         FreeRtos::delay_ms(50);
