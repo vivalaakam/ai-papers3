@@ -12,7 +12,7 @@ pub use components::{
 };
 pub use events::UiEvent;
 
-use crate::display::EmbeddedDisplay;
+use crate::display::DisplayTarget;
 use crate::ui::component::InstantiatedComponent;
 use crate::ui::element::AnyElement;
 use crate::ui::events::EventDispatcher;
@@ -23,16 +23,16 @@ use crate::ui::layout::LayoutEngine;
 pub struct UiApp {
     engine: LayoutEngine,
     dispatcher: EventDispatcher,
-    display: EmbeddedDisplay,
+    display: Box<dyn DisplayTarget>,
     root: Option<InstantiatedComponent>,
 }
 
 impl UiApp {
-    pub fn new(display: EmbeddedDisplay) -> Self {
+    pub fn new(display: impl DisplayTarget + 'static) -> Self {
         Self {
             engine: LayoutEngine::new(),
             dispatcher: EventDispatcher::new(),
-            display,
+            display: Box::new(display),
             root: None,
         }
     }
@@ -51,11 +51,7 @@ impl UiApp {
         let root_node = self.root.as_ref().unwrap().node_id;
 
         // ── PHASE 2: LAYOUT ───────────────────────────────────────────────────
-        self.engine.compute(
-            root_node,
-            self.display.width() as f32,
-            self.display.height() as f32,
-        );
+        self.engine.compute(root_node, self.display.width() as f32, self.display.height() as f32);
 
         // ── PHASE 3: DRAW + COLLECT HITS ──────────────────────────────────────
         self.display
@@ -63,7 +59,7 @@ impl UiApp {
         self.dispatcher.clear();
 
         {
-            let mut ctx = DrawContext::new(&mut self.display);
+            let mut ctx = DrawContext::new(self.display.as_mut());
             if let Some(ref root) = self.root {
                 root.draw_and_collect(&self.engine, 0, 0, &mut ctx, &mut self.dispatcher);
             }
@@ -76,5 +72,9 @@ impl UiApp {
     /// Передать touch-событие. Возвращает true если обработано.
     pub fn handle_event(&mut self, event: UiEvent) -> bool {
         self.dispatcher.dispatch(&event)
+    }
+
+    pub fn poll_events(&mut self) -> bool {
+        self.display.poll_events()
     }
 }

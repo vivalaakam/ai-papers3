@@ -3,13 +3,11 @@ extern crate alloc;
 
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
-use alloc::vec;
 
-use ai_papers3::element;
 use ai_papers3::{
-    AlignItems, BmpImage, Clock, Color, Config, Direction, EdgeInsets, EmbeddedDisplay, FontSize,
-    Gt911, Image, JustifyContent, MainAppError, SizeValue, Text, TouchEvent, TouchTracker, UiApp,
-    UiEvent, View, connect_wifi_networks, load_image, read_file, set_display_rotation,
+    BmpImage, Clock, EmbeddedDisplay, Gt911, MainAppError, TouchEvent, TouchTracker, UiApp,
+    UiEvent, connect_wifi_networks, load_assets, render_image_screen, render_text_screen,
+    set_display_rotation, show_loading_stage,
 };
 use embedded_sdmmc::{SdCard, VolumeManager};
 use esp_idf_hal::delay::FreeRtos;
@@ -21,48 +19,6 @@ use esp_idf_hal::units::{KiloHertz, MegaHertz};
 use log::info;
 
 const SLEEP_IDLE_MS: u32 = 30_000;
-
-// ─── UI-функции ──────────────────────────────────────────────────────────────
-
-/// Экран с текстовыми строками (загрузка, статус, отладка).
-/// `lines` — текст с переносами '\n' или без.
-fn render_text_screen(app: &mut UiApp, lines: &str) {
-    app.render(element!(View {
-        direction: Direction::Column,
-        width: SizeValue::Percent(100.0),
-        height: SizeValue::Percent(100.0),
-        padding: EdgeInsets::all(16),
-        background: Some(Color::WHITE),
-        children: vec![element!(Text {
-            content: lines.to_string(),
-            font_size: FontSize::Large,
-            color: Color::BLACK,
-        })],
-    }));
-}
-
-/// Экран с изображением по центру (заставка / sleep screen).
-fn render_image_screen(app: &mut UiApp, image: Arc<BmpImage>) {
-    app.render(element!(View {
-        direction: Direction::Column,
-        width: SizeValue::Percent(100.0),
-        height: SizeValue::Percent(100.0),
-        background: Some(Color::WHITE),
-        justify_content: Some(JustifyContent::Center),
-        align_items: Some(AlignItems::Center),
-        children: vec![element!(Image { image: Some(image) })],
-    }));
-}
-
-/// Добавить строку к накапливаемому тексту загрузки и отобразить.
-fn show_loading_stage(app: &mut UiApp, stage: &str, accumulated: &mut String) {
-    info!("{}", stage);
-    if !accumulated.is_empty() {
-        accumulated.push('\n');
-    }
-    accumulated.push_str(stage);
-    render_text_screen(app, accumulated.as_str());
-}
 
 // ─── main ─────────────────────────────────────────────────────────────────────
 
@@ -165,24 +121,18 @@ fn main() -> Result<(), MainAppError> {
         })
         .unwrap();
 
-    let config = match read_file(&root_dir, "PAPERS~4.YAM") {
-        Some(data) => match serde_yaml::from_slice::<Config>(&data) {
-            Ok(c) => c,
-            Err(err) => {
-                info!("YAML parse error: {}", err);
-                return Ok(());
-            }
-        },
-        None => {
-            info!("PAPERS~4.YAM not found");
+    let assets = match load_assets(&root_dir) {
+        Ok(assets) => assets,
+        Err(err) => {
+            info!("{}", err);
             return Ok(());
         }
     };
 
-    info!("Config: {:?}", config);
+    info!("Config: {:?}", assets.config);
 
     // Загружаем sleep-image и оборачиваем в Arc для Image-компонента
-    let sleep_image: Option<Arc<BmpImage>> = load_image(&root_dir).map(Arc::new);
+    let sleep_image: Option<Arc<BmpImage>> = assets.sleep_image;
 
     show_loading_stage(
         &mut app,
@@ -190,7 +140,7 @@ fn main() -> Result<(), MainAppError> {
         &mut loading_text,
     );
 
-    let wifi_connection = connect_wifi_networks(modem, &config.networks);
+    let wifi_connection = connect_wifi_networks(modem, &assets.config.networks);
 
     let status_text = match wifi_connection.as_ref() {
         Some(conn) => alloc::format!("Готово\nWiFi: {}\nIP: {}", conn.ssid, conn.ip),
