@@ -125,6 +125,11 @@ impl EmbeddedDisplay {
         buffer.fill(byte);
     }
 
+    /// Установить один пиксель (nibble 0-15) в логических координатах.
+    pub(crate) fn draw_pixel(&mut self, x: i32, y: i32, nibble: u8) {
+        self.set_pixel_nibble(x, y, nibble);
+    }
+
     fn set_pixel_nibble(&mut self, x: i32, y: i32, nibble: u8) {
         let Some((phys_x, phys_y)) = self.map_point(x, y) else {
             return;

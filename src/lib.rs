@@ -1,6 +1,7 @@
 extern crate alloc;
 
 mod clock;
+pub mod fonts;
 pub mod ui;
 mod config;
 mod display;

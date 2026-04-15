@@ -1,11 +1,9 @@
-use embedded_graphics::mono_font::ascii::{FONT_10X20, FONT_6X13, FONT_9X18};
-use embedded_graphics::mono_font::{MonoFont, MonoTextStyle};
 use embedded_graphics::pixelcolor::Gray4;
 use embedded_graphics::prelude::*;
 use embedded_graphics::primitives::{PrimitiveStyleBuilder, Rectangle};
-use embedded_graphics::text::{Baseline, Text};
 
 use crate::display::EmbeddedDisplay;
+use crate::fonts::{FontFace, GlyphInfo, UBUNTU_REGULAR_13, UBUNTU_REGULAR_18, UBUNTU_REGULAR_24};
 use crate::image::BmpImage;
 
 // ─── Color ───────────────────────────────────────────────────────────────────
@@ -51,34 +49,33 @@ impl UiRect {
     }
 }
 
-// ─── FontSize / TextStyle ─────────────────────────────────────────────────────
+// ─── FontSize ─────────────────────────────────────────────────────────────────
 
-/// Выбор размера из встроенных bitmap-шрифтов embedded-graphics.
+/// Выбор размера шрифта Ubuntu Regular с поддержкой Unicode/Кириллицы.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum FontSize {
-    Small,          // 6×13 px на символ
+    Small,          // Ubuntu Regular 13 px
     #[default]
-    Medium,         // 9×18 px на символ
-    Large,          // 10×20 px на символ
+    Medium,         // Ubuntu Regular 18 px
+    Large,          // Ubuntu Regular 24 px
 }
 
 impl FontSize {
-    pub fn font(self) -> &'static MonoFont<'static> {
+    pub fn font(self) -> &'static FontFace<'static> {
         match self {
-            FontSize::Small  => &FONT_6X13,
-            FontSize::Medium => &FONT_9X18,
-            FontSize::Large  => &FONT_10X20,
+            FontSize::Small  => &UBUNTU_REGULAR_13,
+            FontSize::Medium => &UBUNTU_REGULAR_18,
+            FontSize::Large  => &UBUNTU_REGULAR_24,
         }
     }
 
-    pub fn char_width(self) -> i32 {
-        self.font().character_size.width as i32
-    }
-
+    /// Высота одной строки в пикселях.
     pub fn line_height(self) -> i32 {
-        self.font().character_size.height as i32
+        self.font().line_height as i32
     }
 }
+
+// ─── TextStyle ───────────────────────────────────────────────────────────────
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct TextStyle {
@@ -133,40 +130,71 @@ impl<'a> DrawContext<'a> {
         .ok();
     }
 
-    /// Нарисовать однострочный текст.
-    /// `x`, `y` — верхний левый угол (не baseline).
+    /// Нарисовать текст (включая многострочный, разделитель '\n').
+    /// `x`, `y` — верхний левый угол первой строки.
     pub fn draw_text(&mut self, text: &str, x: i32, y: i32, style: TextStyle) {
         if text.is_empty() {
             return;
         }
         let font = style.font_size.font();
-        let text_style = MonoTextStyle::new(font, style.color.to_gray4());
-        // embedded-graphics рисует от baseline; сдвигаем y вниз на baseline offset
-        let baseline_y = y + font.baseline as i32;
-        Text::with_baseline(
-            text,
-            Point::new(x, baseline_y),
-            text_style,
-            Baseline::Alphabetic,
-        )
-        .draw(self.display)
-        .ok();
+        let nibble = style.color.0 & 0x0F;
+        let mut cur_y = y;
+
+        for line in text.split('\n') {
+            let baseline_y = cur_y + font.ascent as i32;
+            let mut cur_x = x;
+            for c in line.chars() {
+                match font.find_glyph(c) {
+                    Some(glyph) => {
+                        Self::draw_glyph(self.display, font, glyph, cur_x, baseline_y, nibble);
+                        cur_x += glyph.x_advance as i32;
+                    }
+                    None => {
+                        cur_x += font.size as i32;
+                    }
+                }
+            }
+            cur_y += font.line_height as i32;
+        }
+    }
+
+    /// Нарисовать один глиф из таблицы шрифта.
+    fn draw_glyph(
+        display: &mut EmbeddedDisplay,
+        font: &FontFace<'_>,
+        glyph: &GlyphInfo,
+        cursor_x: i32,
+        baseline_y: i32,
+        nibble: u8,
+    ) {
+        if glyph.width == 0 || glyph.height == 0 {
+            return;
+        }
+        let glyph_x = cursor_x + glyph.x_offset as i32;
+        let glyph_y = baseline_y + glyph.y_offset as i32;
+        let w = glyph.width as usize;
+        let h = glyph.height as usize;
+        let bytes_per_row = (w + 7) / 8;
+        let base = glyph.bitmap_offset as usize;
+
+        for row in 0..h {
+            for col in 0..w {
+                let byte_idx = base + row * bytes_per_row + col / 8;
+                if byte_idx >= font.bitmap.len() {
+                    break;
+                }
+                let bit = (font.bitmap[byte_idx] >> (7 - col % 8)) & 1;
+                if bit != 0 {
+                    display.draw_pixel(glyph_x + col as i32, glyph_y + row as i32, nibble);
+                }
+            }
+        }
     }
 
     /// Измерить размер текста без рисования → (width, height) в пикселях.
     /// Поддерживает многострочный текст (разделитель '\n').
     pub fn measure_text(text: &str, style: TextStyle) -> (i32, i32) {
-        let font = style.font_size.font();
-        let char_w = font.character_size.width as i32;
-        let line_h = font.character_size.height as i32;
-
-        let mut max_w = 0i32;
-        let mut lines = 0i32;
-        for line in text.split('\n') {
-            max_w = max_w.max(line.len() as i32 * char_w);
-            lines += 1;
-        }
-        (max_w, lines.max(1) * line_h)
+        style.font_size.font().measure_text(text)
     }
 
     /// Нарисовать BmpImage с верхним левым углом в (x, y).
