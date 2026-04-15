@@ -11,6 +11,7 @@ pub struct BmpImage {
     pub pixels: Vec<u8>,
 }
 
+#[allow(dead_code)]
 fn read_u16(data: &[u8], offset: usize) -> Result<u16, &'static str> {
     let bytes = data
         .get(offset..offset + 2)
@@ -18,6 +19,7 @@ fn read_u16(data: &[u8], offset: usize) -> Result<u16, &'static str> {
     Ok(u16::from_le_bytes([bytes[0], bytes[1]]))
 }
 
+#[allow(dead_code)]
 fn read_u32(data: &[u8], offset: usize) -> Result<u32, &'static str> {
     let bytes = data
         .get(offset..offset + 4)
@@ -32,6 +34,7 @@ fn read_be_u32(data: &[u8], offset: usize) -> Result<u32, &'static str> {
     Ok(u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
 }
 
+#[allow(dead_code)]
 fn read_i32(data: &[u8], offset: usize) -> Result<i32, &'static str> {
     let bytes = data
         .get(offset..offset + 4)
@@ -49,6 +52,7 @@ fn grayscale_with_alpha(gray: u8, alpha: u8) -> u8 {
     ((gray as u8) & 0xF0).max(0x10)
 }
 
+#[allow(dead_code)]
 pub fn decode_bmp(data: &[u8]) -> Result<BmpImage, &'static str> {
     if data.len() < 54 || &data[0..2] != b"BM" {
         return Err("Unsupported BMP header");
@@ -301,9 +305,7 @@ pub fn load_image<
 >(
     root_dir: &Directory<'_, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
 ) -> Option<BmpImage> {
-    let Some(png_data) = read_file(root_dir, "OUTPUT.PNG") else {
-        return None;
-    };
+    let png_data = read_file(root_dir, "OUTPUT.PNG")?;
 
     let Ok(image) = decode_png(&png_data) else {
         info!("PNG decode error");
