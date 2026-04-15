@@ -1,16 +1,16 @@
 #![no_std]
 extern crate alloc;
 
+use alloc::string::{String, ToString};
+use alloc::sync::Arc;
+use alloc::vec;
+
+use ai_papers3::element;
 use ai_papers3::{
-    Clock, Config, EmbeddedDisplay, Gt911, MainAppError, ScaledDisplay, TouchEvent,
-    TouchTracker, connect_wifi_networks, load_image, read_file, set_display_rotation,
+    AlignItems, BmpImage, Clock, Color, Config, Direction, EdgeInsets, EmbeddedDisplay, FontSize,
+    Gt911, Image, JustifyContent, MainAppError, SizeValue, Text, TouchEvent, TouchTracker, UiApp,
+    UiEvent, View, connect_wifi_networks, load_image, read_file, set_display_rotation,
 };
-use alloc::string::ToString;
-use embedded_graphics::mono_font::iso_8859_5::FONT_9X18;
-use embedded_graphics::mono_font::MonoTextStyle;
-use embedded_graphics::pixelcolor::Gray4;
-use embedded_graphics::prelude::*;
-use embedded_graphics::text::{Baseline, Text};
 use embedded_sdmmc::{SdCard, VolumeManager};
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::gpio::PinDriver;
@@ -22,69 +22,81 @@ use log::info;
 
 const SLEEP_IDLE_MS: u32 = 30_000;
 
-fn render_status(display: &mut EmbeddedDisplay, text: &str) {
-    display.clear(Gray4::WHITE);
-    let style = MonoTextStyle::new(&FONT_9X18, Gray4::BLACK);
-    let mut scaled = ScaledDisplay::new(display, 2);
-    let text = Text::with_baseline(text, Point::new(8, 8), style, Baseline::Top);
-    let _ = text.draw(&mut scaled);
-    if let Err(err) = display.flush() {
-        info!("Display commit error: {}", err);
-    }
+// ─── UI-функции ──────────────────────────────────────────────────────────────
+
+/// Экран с текстовыми строками (загрузка, статус, отладка).
+/// `lines` — текст с переносами '\n' или без.
+fn render_text_screen(app: &mut UiApp, lines: &str) {
+    app.render(element!(View {
+        direction: Direction::Column,
+        width: SizeValue::Percent(100.0),
+        height: SizeValue::Percent(100.0),
+        padding: EdgeInsets::all(16),
+        background: Some(Color::WHITE),
+        children: vec![element!(Text {
+            content: lines.to_string(),
+            font_size: FontSize::Large,
+            color: Color::BLACK,
+        })],
+    }));
 }
 
-fn render_sleep_image(display: &mut EmbeddedDisplay, image: &ai_papers3::BmpImage) {
-    display.clear(Gray4::WHITE);
-    let image_width = image.width as i32;
-    let image_height = image.height as i32;
-    let x = (display.width() - image_width) / 2;
-    let y = (display.height() - image_height) / 2;
-    display.draw_bitmap(image, x, y);
-    if let Err(err) = display.flush() {
-        info!("Display commit error: {}", err);
-    }
+/// Экран с изображением по центру (заставка / sleep screen).
+fn render_image_screen(app: &mut UiApp, image: Arc<BmpImage>) {
+    app.render(element!(View {
+        direction: Direction::Column,
+        width: SizeValue::Percent(100.0),
+        height: SizeValue::Percent(100.0),
+        background: Some(Color::WHITE),
+        justify_content: Some(JustifyContent::Center),
+        align_items: Some(AlignItems::Center),
+        children: vec![element!(Image { image: Some(image) })],
+    }));
 }
 
-fn show_loading_stage(
-    display: &mut EmbeddedDisplay,
-    stage: &str,
-    accumulated: &mut alloc::string::String,
-) {
+/// Добавить строку к накапливаемому тексту загрузки и отобразить.
+fn show_loading_stage(app: &mut UiApp, stage: &str, accumulated: &mut String) {
     info!("{}", stage);
     if !accumulated.is_empty() {
         accumulated.push('\n');
     }
     accumulated.push_str(stage);
-
-    render_status(display, accumulated.as_str());
+    render_text_screen(app, accumulated.as_str());
 }
+
+// ─── main ─────────────────────────────────────────────────────────────────────
 
 fn main() -> Result<(), MainAppError> {
     esp_idf_svc::sys::link_patches();
-
     esp_idf_svc::log::EspLogger::initialize_default();
 
-    let mut loading_text = alloc::string::String::new();
+    let mut loading_text = String::new();
 
     if let Err(err) = set_display_rotation(270) {
         info!("Display rotation error: {}", err);
     }
 
-    let mut display = match EmbeddedDisplay::new() {
-        Ok(display) => display,
+    let display = match EmbeddedDisplay::new() {
+        Ok(d) => d,
         Err(err) => {
             info!("Display init error: {}", err);
             return Ok(());
         }
     };
 
-    show_loading_stage(&mut display, "Загрузка 1/4\nИнициализация SPI", &mut loading_text);
+    // UiApp берёт ownership над display — всё рисование теперь через него
+    let mut app = UiApp::new(display);
+
+    show_loading_stage(
+        &mut app,
+        "Загрузка 1/4\nИнициализация SPI",
+        &mut loading_text,
+    );
 
     let peripherals = peripherals::Peripherals::take().unwrap();
     let modem = peripherals.modem;
     let gpios = peripherals.pins;
 
-    // Initialize SPI interface
     let spi = peripherals.spi2;
     let driver = match SpiDriver::new::<SPI2>(
         spi,
@@ -93,51 +105,49 @@ fn main() -> Result<(), MainAppError> {
         Some(gpios.gpio40),
         &SpiDriverConfig::new(),
     ) {
-        Ok(data) => data,
+        Ok(d) => d,
         Err(e) => {
-            info!("SPI Driver initialization error: {}", e);
+            info!("SPI Driver error: {}", e);
             return Ok(());
         }
     };
 
     let spi_device_config = config::Config::new().baudrate(MegaHertz(10).into());
     let spi_device = match SpiDeviceDriver::new(driver, Some(gpios.gpio47), &spi_device_config) {
-        Ok(data) => data,
+        Ok(d) => d,
         Err(e) => {
-            info!("SPI Device Driver initialization error: {}", e);
+            info!("SPI Device error: {}", e);
             return Ok(());
         }
     };
 
     let sdcard = SdCard::new(spi_device, esp_idf_hal::delay::FreeRtos);
-
     info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
 
-    show_loading_stage(&mut display, "Загрузка 2/4\nИнициализация SD", &mut loading_text);
+    show_loading_stage(
+        &mut app,
+        "Загрузка 2/4\nИнициализация SD",
+        &mut loading_text,
+    );
 
     let volume_mgr = VolumeManager::new(sdcard, Clock);
-
     let volume0 = match volume_mgr.open_volume(embedded_sdmmc::VolumeIdx(0)) {
-        Ok(data) => data,
+        Ok(d) => d,
         Err(e) => {
-            info!("Volume 0 open error: {:?}", e);
+            info!("Volume 0 error: {:?}", e);
             return Ok(());
         }
     };
 
-    info!("Volume 0: {:?}", volume0);
-
-    show_loading_stage(&mut display, "Загрузка 3/4\nЧтение файлов", &mut loading_text);
+    show_loading_stage(&mut app, "Загрузка 3/4\nЧтение файлов", &mut loading_text);
 
     let root_dir = match volume0.open_root_dir() {
-        Ok(data) => data,
+        Ok(d) => d,
         Err(e) => {
-            info!("Root dir open error: {:?}", e);
+            info!("Root dir error: {:?}", e);
             return Ok(());
         }
     };
-
-    // let f = root_dir.open_file_in_dir(FILE_TO_READ, Mode::ReadOnly)?;
 
     root_dir
         .iterate_dir(|entry| {
@@ -156,8 +166,8 @@ fn main() -> Result<(), MainAppError> {
         .unwrap();
 
     let config = match read_file(&root_dir, "PAPERS~4.YAM") {
-        Some(file_data) => match serde_yaml::from_slice::<Config>(&file_data) {
-            Ok(data) => data,
+        Some(data) => match serde_yaml::from_slice::<Config>(&data) {
+            Ok(c) => c,
             Err(err) => {
                 info!("YAML parse error: {}", err);
                 return Ok(());
@@ -171,26 +181,28 @@ fn main() -> Result<(), MainAppError> {
 
     info!("Config: {:?}", config);
 
-    let sleep_image = load_image(&root_dir);
+    // Загружаем sleep-image и оборачиваем в Arc для Image-компонента
+    let sleep_image: Option<Arc<BmpImage>> = load_image(&root_dir).map(Arc::new);
 
-    show_loading_stage(&mut display, "Загрузка 4/4\nПодключение WiFi", &mut loading_text);
+    show_loading_stage(
+        &mut app,
+        "Загрузка 4/4\nПодключение WiFi",
+        &mut loading_text,
+    );
 
     let wifi_connection = connect_wifi_networks(modem, &config.networks);
 
     let status_text = match wifi_connection.as_ref() {
-        Some(connection) => {
-            alloc::format!("Готово\nWiFi: {}\nIP: {}", connection.ssid, connection.ip)
-        }
+        Some(conn) => alloc::format!("Готово\nWiFi: {}\nIP: {}", conn.ssid, conn.ip),
         None => "Готово\nWiFi: нет сети\nIP: --".to_string(),
     };
+    render_text_screen(&mut app, &status_text);
 
-    render_status(&mut display, status_text.as_str());
-
-    info!("Hello, world!");
+    info!("Initialization complete");
 
     let i2c_config = I2cConfig::new().baudrate(KiloHertz(400).into());
     let mut i2c = match I2cDriver::new(peripherals.i2c0, gpios.gpio41, gpios.gpio42, &i2c_config) {
-        Ok(data) => data,
+        Ok(d) => d,
         Err(err) => {
             info!("I2C init error: {}", err);
             return Ok(());
@@ -198,9 +210,9 @@ fn main() -> Result<(), MainAppError> {
     };
 
     let touch_address = match Gt911::detect_address(&mut i2c) {
-        Some(address) => address,
+        Some(addr) => addr,
         None => {
-            info!("GT911 not found on I2C bus");
+            info!("GT911 not found");
             return Ok(());
         }
     };
@@ -211,7 +223,7 @@ fn main() -> Result<(), MainAppError> {
     let mut sleep_shown = false;
 
     let touch_int = match PinDriver::input(gpios.gpio48) {
-        Ok(data) => data,
+        Ok(d) => d,
         Err(err) => {
             info!("Touch INT pin error: {}", err);
             return Ok(());
@@ -225,20 +237,29 @@ fn main() -> Result<(), MainAppError> {
                     if let Some(event) = touch_tracker.on_sample(point) {
                         idle_ms = 0;
                         sleep_shown = false;
-                        match event {
-                            TouchEvent::Touch(point) => {
-                                let text = alloc::format!("Touch:\nX: {}\nY: {}", point.x, point.y);
-                                render_status(&mut display, text.as_str());
-                            }
-                            TouchEvent::Slide { from, to } => {
-                                let text = alloc::format!(
-                                    "Slide:\n{}:{} -> {}:{}",
-                                    from.x,
-                                    from.y,
-                                    to.x,
-                                    to.y
-                                );
-                                render_status(&mut display, text.as_str());
+
+                        // Передаём событие в UI (на будущее — для Button)
+                        let ui_event = match event {
+                            TouchEvent::Touch(p) => Some(UiEvent::Tap(p)),
+                            TouchEvent::Slide { from, to } => Some(UiEvent::Slide { from, to }),
+                        };
+
+                        if let Some(ref ev) = ui_event {
+                            // Если никто не обработал — показываем координаты
+                            if !app.handle_event(ev.clone()) {
+                                let text = match event {
+                                    TouchEvent::Touch(p) => {
+                                        alloc::format!("Touch\nX: {}\nY: {}", p.x, p.y)
+                                    }
+                                    TouchEvent::Slide { from, to } => alloc::format!(
+                                        "Slide\n{}:{} -> {}:{}",
+                                        from.x,
+                                        from.y,
+                                        to.x,
+                                        to.y
+                                    ),
+                                };
+                                render_text_screen(&mut app, &text);
                             }
                         }
                     }
@@ -251,12 +272,13 @@ fn main() -> Result<(), MainAppError> {
             touch_tracker.on_sample(None);
             idle_ms = idle_ms.saturating_add(50);
             if !sleep_shown && idle_ms >= SLEEP_IDLE_MS {
-                if let Some(image) = sleep_image.as_ref() {
-                    render_sleep_image(&mut display, image);
-                    sleep_shown = true;
-                } else {
-                    info!("Sleep image OUTPUT.PNG not found");
-                    sleep_shown = true;
+                sleep_shown = true;
+                match sleep_image.as_ref() {
+                    Some(img) => render_image_screen(&mut app, Arc::clone(img)),
+                    None => {
+                        info!("Sleep image not found");
+                        render_text_screen(&mut app, "Экран выкл.");
+                    }
                 }
             }
         }

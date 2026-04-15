@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk '{print $NF}')",
+      "Bash(grep -E \"\\\\.md$\")",
+      "Bash(cargo build:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(grep -v \"^$\")"
+    ]
+  }
+}

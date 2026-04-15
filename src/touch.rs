@@ -45,7 +45,10 @@ impl TouchTracker {
                     return None;
                 }
                 self.last_point = Some(current);
-                Some(TouchEvent::Slide { from: previous, to: current })
+                Some(TouchEvent::Slide {
+                    from: previous,
+                    to: current,
+                })
             }
             (_, None) => {
                 self.last_point = None;
@@ -120,14 +123,19 @@ impl<'d> Gt911<'d> {
     fn read_bytes(&mut self, register: u16, buffer: &mut [u8]) -> Result<(), EspError> {
         let register_bytes = [Self::reg_high(register), Self::reg_low(register)];
         let timeout = TickType::new_millis(I2C_TIMEOUT_MS).ticks();
-        self.i2c.write_read(self.address, &register_bytes, buffer, timeout)
+        self.i2c
+            .write_read(self.address, &register_bytes, buffer, timeout)
     }
 
     fn probe_address(i2c: &mut I2cDriver<'d>, address: u8) -> bool {
-        let register_bytes = [Self::reg_high(GT911_REG_STATUS), Self::reg_low(GT911_REG_STATUS)];
+        let register_bytes = [
+            Self::reg_high(GT911_REG_STATUS),
+            Self::reg_low(GT911_REG_STATUS),
+        ];
         let mut value = [0u8; 1];
         let timeout = TickType::new_millis(I2C_TIMEOUT_MS).ticks();
-        i2c.write_read(address, &register_bytes, &mut value, timeout).is_ok()
+        i2c.write_read(address, &register_bytes, &mut value, timeout)
+            .is_ok()
     }
 
     fn reg_high(register: u16) -> u8 {
