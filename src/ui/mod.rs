@@ -51,7 +51,11 @@ impl UiApp {
         let root_node = self.root.as_ref().unwrap().node_id;
 
         // ── PHASE 2: LAYOUT ───────────────────────────────────────────────────
-        self.engine.compute(root_node, self.display.width() as f32, self.display.height() as f32);
+        self.engine.compute(
+            root_node,
+            self.display.width() as f32,
+            self.display.height() as f32,
+        );
 
         // ── PHASE 3: DRAW + COLLECT HITS ──────────────────────────────────────
         self.display
@@ -76,5 +80,9 @@ impl UiApp {
 
     pub fn poll_events(&mut self) -> bool {
         self.display.poll_events()
+    }
+
+    pub fn drain_input(&mut self) -> Vec<crate::TouchPoint> {
+        self.display.drain_input()
     }
 }

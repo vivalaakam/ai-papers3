@@ -1,10 +1,12 @@
 use embedded_graphics::geometry::Size;
 use embedded_graphics::pixelcolor::Gray4;
 use embedded_graphics::prelude::*;
-use embedded_graphics_simulator::{OutputSettingsBuilder, SimulatorDisplay, SimulatorEvent, Window};
+use embedded_graphics_simulator::{
+    OutputSettingsBuilder, SimulatorDisplay, SimulatorEvent, Window,
+};
 
 use crate::display::{DisplayError, DisplayTarget};
-use crate::BmpImage;
+use crate::{BmpImage, TouchPoint};
 
 pub struct SimulatedDisplay {
     display: SimulatorDisplay<Gray4>,
@@ -14,6 +16,8 @@ pub struct SimulatedDisplay {
     physical_width: i32,
     physical_height: i32,
     rotation: i32,
+    pending_events: Vec<TouchPoint>,
+    quit_requested: bool,
 }
 
 impl SimulatedDisplay {
@@ -36,6 +40,8 @@ impl SimulatedDisplay {
             physical_width,
             physical_height,
             rotation,
+            pending_events: Vec::new(),
+            quit_requested: false,
         }
     }
 
@@ -79,6 +85,25 @@ impl SimulatedDisplay {
         }
         Some((phys_x, phys_y))
     }
+
+    fn pump_events(&mut self) {
+        for event in self.window.events() {
+            match event {
+                SimulatorEvent::Quit => {
+                    self.quit_requested = true;
+                }
+                SimulatorEvent::MouseButtonUp { point, .. } => {
+                    if point.x >= 0 && point.y >= 0 {
+                        self.pending_events.push(TouchPoint {
+                            x: point.x as u16,
+                            y: point.y as u16,
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
 }
 
 impl DisplayTarget for SimulatedDisplay {
@@ -104,7 +129,9 @@ impl DisplayTarget for SimulatedDisplay {
             return;
         };
         let color = Gray4::new(nibble & 0x0F);
-        let _ = self.display.draw_iter(core::iter::once(Pixel(Point::new(phys_x, phys_y), color)));
+        let _ = self
+            .display
+            .draw_iter(core::iter::once(Pixel(Point::new(phys_x, phys_y), color)));
     }
 
     fn draw_bitmap(&mut self, image: &BmpImage, x: i32, y: i32) {
@@ -112,6 +139,12 @@ impl DisplayTarget for SimulatedDisplay {
     }
 
     fn poll_events(&mut self) -> bool {
-        self.window.events().any(|event| matches!(event, SimulatorEvent::Quit))
+        self.pump_events();
+        self.quit_requested
+    }
+
+    fn drain_input(&mut self) -> Vec<TouchPoint> {
+        self.pump_events();
+        self.pending_events.drain(..).collect()
     }
 }

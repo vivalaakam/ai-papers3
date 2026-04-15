@@ -13,12 +13,12 @@ mod embedded_impl {
     use log::info;
 
     impl<
-            D: BlockDevice,
-            T: TimeSource,
-            const MAX_DIRS: usize,
-            const MAX_FILES: usize,
-            const MAX_VOLUMES: usize,
-        > Storage for Directory<'_, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
+        D: BlockDevice,
+        T: TimeSource,
+        const MAX_DIRS: usize,
+        const MAX_FILES: usize,
+        const MAX_VOLUMES: usize,
+    > Storage for Directory<'_, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
     {
         fn read_file(&self, name: &str) -> Option<Vec<u8>> {
             let file = match self.open_file_in_dir(name, Mode::ReadOnly) {

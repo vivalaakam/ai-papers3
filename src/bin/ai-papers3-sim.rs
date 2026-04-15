@@ -3,7 +3,7 @@ use std::thread;
 use std::time::Duration;
 
 use ai_papers3::{
-    DISPLAY_HEIGHT, DISPLAY_WIDTH, LocalStorage, SimulatedDisplay, UiApp, load_assets,
+    DISPLAY_HEIGHT, DISPLAY_WIDTH, LocalStorage, SimulatedDisplay, UiApp, UiEvent, load_assets,
     render_image_screen, render_text_screen, show_loading_stage,
 };
 
@@ -50,6 +50,12 @@ fn main() {
     loop {
         if app.poll_events() {
             break;
+        }
+        for point in app.drain_input() {
+            if !app.handle_event(UiEvent::Tap(point)) {
+                let text = format!("Touch\nX: {}\nY: {}", point.x, point.y);
+                render_text_screen(&mut app, &text);
+            }
         }
         thread::sleep(Duration::from_millis(50));
     }

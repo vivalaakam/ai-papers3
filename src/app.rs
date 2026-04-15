@@ -24,12 +24,13 @@ pub fn load_assets(storage: &impl Storage) -> Result<AppAssets, String> {
     let config_data = storage
         .read_file(CONFIG_FILE_NAME)
         .ok_or_else(|| format!("{} not found", CONFIG_FILE_NAME))?;
-    let config =
-        serde_yaml::from_slice::<Config>(&config_data).map_err(|err| {
-            format!("YAML parse error: {}", err)
-        })?;
+    let config = serde_yaml::from_slice::<Config>(&config_data)
+        .map_err(|err| format!("YAML parse error: {}", err))?;
     let sleep_image = load_image(storage).map(Arc::new);
-    Ok(AppAssets { config, sleep_image })
+    Ok(AppAssets {
+        config,
+        sleep_image,
+    })
 }
 
 /// Экран с текстовыми строками (загрузка, статус, отладка).

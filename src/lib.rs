@@ -6,9 +6,9 @@ mod clock;
 mod config;
 mod display;
 mod enums;
-mod storage;
 pub mod fonts;
 mod image;
+mod storage;
 #[cfg(target_os = "espidf")]
 mod touch;
 #[cfg(not(target_os = "espidf"))]
@@ -25,19 +25,19 @@ pub use app::{
 #[cfg(target_os = "espidf")]
 pub use clock::Clock;
 pub use config::Config;
+#[cfg(feature = "simulator")]
+pub use display::SimulatedDisplay;
 pub use display::{DISPLAY_HEIGHT, DISPLAY_WIDTH, DisplayError, DisplayTarget};
 #[cfg(target_os = "espidf")]
 pub use display::{
     EmbeddedDisplay, ScaledDisplay, display_begin, display_commit, display_draw_bitmap,
     display_draw_rect, display_draw_text, set_display_font_size, set_display_rotation,
 };
-#[cfg(feature = "simulator")]
-pub use display::SimulatedDisplay;
 pub use enums::MainAppError;
-pub use storage::Storage;
+pub use image::{BmpImage, load_image};
 #[cfg(feature = "simulator")]
 pub use storage::LocalStorage;
-pub use image::{BmpImage, load_image};
+pub use storage::Storage;
 #[cfg(target_os = "espidf")]
 pub use touch::{Gt911, TouchEvent, TouchPoint, TouchTracker};
 #[cfg(not(target_os = "espidf"))]

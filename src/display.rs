@@ -21,6 +21,9 @@ pub trait DisplayTarget {
     fn poll_events(&mut self) -> bool {
         false
     }
+    fn drain_input(&mut self) -> Vec<crate::TouchPoint> {
+        Vec::new()
+    }
 }
 
 #[cfg(target_os = "espidf")]
