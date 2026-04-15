@@ -5,7 +5,8 @@
       "Bash(grep -E \"\\\\.md$\")",
       "Bash(cargo build:*)",
       "Bash(cargo clippy:*)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(cargo check *)"
     ]
   }
 }

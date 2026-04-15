@@ -2,11 +2,10 @@
 extern crate alloc;
 
 use alloc::string::{String, ToString};
-use alloc::sync::Arc;
 
 use ai_papers3::{
-    BmpImage, Clock, EmbeddedDisplay, Gt911, MainAppError, TouchEvent, TouchTracker, UiApp,
-    UiEvent, connect_wifi_networks, load_assets, render_image_screen, render_text_screen,
+    App, Clock, EmbeddedDisplay, Gt911, MainAppError, SDCardStorage, TouchEvent, TouchTracker,
+    UiApp, UiEvent, connect_wifi_networks, render_image_screen, render_text_screen,
     set_display_rotation, show_loading_stage,
 };
 use embedded_sdmmc::{SdCard, VolumeManager};
@@ -40,11 +39,10 @@ fn main() -> Result<(), MainAppError> {
         }
     };
 
-    // UiApp берёт ownership над display — всё рисование теперь через него
-    let mut app = UiApp::new(display);
+    let mut ui = UiApp::new(display);
 
     show_loading_stage(
-        &mut app,
+        &mut ui,
         "Загрузка 1/4\nИнициализация SPI",
         &mut loading_text,
     );
@@ -77,76 +75,37 @@ fn main() -> Result<(), MainAppError> {
         }
     };
 
-    let sdcard = SdCard::new(spi_device, esp_idf_hal::delay::FreeRtos);
+    let sdcard = SdCard::new(spi_device, FreeRtos);
     info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
 
-    show_loading_stage(
-        &mut app,
-        "Загрузка 2/4\nИнициализация SD",
-        &mut loading_text,
-    );
+    show_loading_stage(&mut ui, "Загрузка 2/4\nИнициализация SD", &mut loading_text);
 
     let volume_mgr = VolumeManager::new(sdcard, Clock);
-    let volume0 = match volume_mgr.open_volume(embedded_sdmmc::VolumeIdx(0)) {
-        Ok(d) => d,
-        Err(e) => {
-            info!("Volume 0 error: {:?}", e);
-            return Ok(());
-        }
-    };
+    let storage = SDCardStorage::new(volume_mgr, None);
 
-    show_loading_stage(&mut app, "Загрузка 3/4\nЧтение файлов", &mut loading_text);
+    show_loading_stage(&mut ui, "Загрузка 3/4\nЧтение файлов", &mut loading_text);
 
-    let root_dir = match volume0.open_root_dir() {
-        Ok(d) => d,
-        Err(e) => {
-            info!("Root dir error: {:?}", e);
-            return Ok(());
-        }
-    };
-
-    root_dir
-        .iterate_dir(|entry| {
-            info!(
-                "{:12} {:9} {} {}",
-                entry.name,
-                entry.size,
-                entry.mtime,
-                if entry.attributes.is_directory() {
-                    "<DIR>"
-                } else {
-                    ""
-                }
-            );
-        })
-        .unwrap();
-
-    let assets = match load_assets(&root_dir) {
-        Ok(assets) => assets,
+    let mut app = match App::with_ui(ui, storage) {
+        Ok(app) => app,
         Err(err) => {
             info!("{}", err);
             return Ok(());
         }
     };
 
-    info!("Config: {:?}", assets.config);
-
-    // Загружаем sleep-image и оборачиваем в Arc для Image-компонента
-    let sleep_image: Option<Arc<BmpImage>> = assets.sleep_image;
+    let wifi_connection = connect_wifi_networks(modem, &app.assets().config.networks);
 
     show_loading_stage(
-        &mut app,
+        app.ui_mut(),
         "Загрузка 4/4\nПодключение WiFi",
         &mut loading_text,
     );
-
-    let wifi_connection = connect_wifi_networks(modem, &assets.config.networks);
 
     let status_text = match wifi_connection.as_ref() {
         Some(conn) => alloc::format!("Готово\nWiFi: {}\nIP: {}", conn.ssid, conn.ip),
         None => "Готово\nWiFi: нет сети\nIP: --".to_string(),
     };
-    render_text_screen(&mut app, &status_text);
+    render_text_screen(app.ui_mut(), &status_text);
 
     info!("Initialization complete");
 
@@ -188,14 +147,12 @@ fn main() -> Result<(), MainAppError> {
                         idle_ms = 0;
                         sleep_shown = false;
 
-                        // Передаём событие в UI (на будущее — для Button)
                         let ui_event = match event {
                             TouchEvent::Touch(p) => Some(UiEvent::Tap(p)),
                             TouchEvent::Slide { from, to } => Some(UiEvent::Slide { from, to }),
                         };
 
                         if let Some(ref ev) = ui_event {
-                            // Если никто не обработал — показываем координаты
                             if !app.handle_event(ev.clone()) {
                                 let text = match event {
                                     TouchEvent::Touch(p) => {
@@ -209,7 +166,7 @@ fn main() -> Result<(), MainAppError> {
                                         to.y
                                     ),
                                 };
-                                render_text_screen(&mut app, &text);
+                                render_text_screen(app.ui_mut(), &text);
                             }
                         }
                     }
@@ -223,11 +180,11 @@ fn main() -> Result<(), MainAppError> {
             idle_ms = idle_ms.saturating_add(50);
             if !sleep_shown && idle_ms >= SLEEP_IDLE_MS {
                 sleep_shown = true;
-                match sleep_image.as_ref() {
-                    Some(img) => render_image_screen(&mut app, Arc::clone(img)),
+                match app.assets().sleep_image.clone() {
+                    Some(img) => render_image_screen(app.ui_mut(), img),
                     None => {
                         info!("Sleep image not found");
-                        render_text_screen(&mut app, "Экран выкл.");
+                        render_text_screen(app.ui_mut(), "Экран выкл.");
                     }
                 }
             }

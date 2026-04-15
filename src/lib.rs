@@ -19,7 +19,7 @@ pub mod ui;
 mod wifi;
 
 pub use app::{
-    AppAssets, CONFIG_FILE_NAME, load_assets, render_image_screen, render_text_screen,
+    App, AppAssets, CONFIG_FILE_NAME, load_assets, render_image_screen, render_text_screen,
     show_loading_stage,
 };
 #[cfg(target_os = "espidf")]
@@ -37,6 +37,8 @@ pub use enums::MainAppError;
 pub use image::{BmpImage, load_image};
 #[cfg(feature = "simulator")]
 pub use storage::LocalStorage;
+#[cfg(target_os = "espidf")]
+pub use storage::SDCardStorage;
 pub use storage::Storage;
 #[cfg(target_os = "espidf")]
 pub use touch::{Gt911, TouchEvent, TouchPoint, TouchTracker};

@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec;
@@ -20,7 +21,7 @@ pub struct AppAssets {
     pub sleep_image: Option<Arc<BmpImage>>,
 }
 
-pub fn load_assets(storage: &impl Storage) -> Result<AppAssets, String> {
+pub fn load_assets(storage: &dyn Storage) -> Result<AppAssets, String> {
     let config_data = storage
         .read_file(CONFIG_FILE_NAME)
         .ok_or_else(|| format!("{} not found", CONFIG_FILE_NAME))?;
@@ -32,6 +33,71 @@ pub fn load_assets(storage: &impl Storage) -> Result<AppAssets, String> {
         sleep_image,
     })
 }
+
+// ─── App ─────────────────────────────────────────────────────────────────────
+
+pub struct App {
+    ui: UiApp,
+    storage: Option<Box<dyn Storage>>,
+    assets: AppAssets,
+}
+
+impl App {
+    pub fn new(
+        display: impl crate::display::DisplayTarget + 'static,
+        storage: impl Storage + 'static,
+    ) -> Result<Self, String> {
+        let assets = load_assets(&storage)?;
+        Ok(Self {
+            ui: UiApp::new(display),
+            storage: Some(Box::new(storage)),
+            assets,
+        })
+    }
+
+    pub fn with_ui(ui: UiApp, storage: impl Storage + 'static) -> Result<Self, String> {
+        let assets = load_assets(&storage)?;
+        Ok(Self {
+            ui,
+            storage: Some(Box::new(storage)),
+            assets,
+        })
+    }
+
+    pub fn into_display(self) -> Box<dyn crate::display::DisplayTarget> {
+        self.ui.into_display()
+    }
+
+    pub fn storage(&self) -> Option<&dyn Storage> {
+        self.storage.as_deref()
+    }
+
+    pub fn assets(&self) -> &AppAssets {
+        &self.assets
+    }
+
+    pub fn render(&mut self, element: crate::ui::element::AnyElement) {
+        self.ui.render(element);
+    }
+
+    pub fn handle_event(&mut self, event: crate::ui::events::UiEvent) -> bool {
+        self.ui.handle_event(event)
+    }
+
+    pub fn poll_events(&mut self) -> bool {
+        self.ui.poll_events()
+    }
+
+    pub fn drain_input(&mut self) -> alloc::vec::Vec<crate::TouchPoint> {
+        self.ui.drain_input()
+    }
+
+    pub fn ui_mut(&mut self) -> &mut UiApp {
+        &mut self.ui
+    }
+}
+
+// ─── Экраны ─────────────────────────────────────────────────────────────────
 
 /// Экран с текстовыми строками (загрузка, статус, отладка).
 /// `lines` — текст с переносами '\n' или без.

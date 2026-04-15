@@ -85,4 +85,8 @@ impl UiApp {
     pub fn drain_input(&mut self) -> Vec<crate::TouchPoint> {
         self.display.drain_input()
     }
+
+    pub fn into_display(self) -> Box<dyn DisplayTarget> {
+        self.display
+    }
 }

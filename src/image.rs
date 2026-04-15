@@ -295,7 +295,7 @@ pub fn decode_png(data: &[u8]) -> Result<BmpImage, &'static str> {
     })
 }
 
-pub fn load_image(storage: &impl Storage) -> Option<BmpImage> {
+pub fn load_image(storage: &dyn Storage) -> Option<BmpImage> {
     let png_data = storage.read_file("OUTPUT.PNG")?;
 
     let Ok(image) = decode_png(&png_data) else {
