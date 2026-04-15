@@ -1,5 +1,5 @@
-use taffy::prelude::*;
 use taffy::TaffyTree;
+use taffy::prelude::*;
 
 use crate::ui::canvas::UiRect;
 
@@ -22,7 +22,9 @@ pub struct LayoutEngine {
 
 impl LayoutEngine {
     pub fn new() -> Self {
-        Self { tree: TaffyTree::new() }
+        Self {
+            tree: TaffyTree::new(),
+        }
     }
 
     /// Создать новый листовой узел с заданным стилем.
@@ -34,7 +36,9 @@ impl LayoutEngine {
 
     /// Обновить стиль существующего узла.
     pub fn set_style(&mut self, node: NodeId, style: Style) {
-        self.tree.set_style(node, style).expect("taffy: set_style failed");
+        self.tree
+            .set_style(node, style)
+            .expect("taffy: set_style failed");
     }
 
     /// Установить список дочерних NodeId.
@@ -45,11 +49,7 @@ impl LayoutEngine {
     }
 
     /// Установить measure-функцию для узла (для Text и т.п.).
-    pub fn set_measure_fn(
-        &mut self,
-        node: NodeId,
-        f: impl Fn(f32) -> (f32, f32) + Send + 'static,
-    ) {
+    pub fn set_measure_fn(&mut self, node: NodeId, f: impl Fn(f32) -> (f32, f32) + Send + 'static) {
         if let Some(ctx) = self.tree.get_node_context_mut(node) {
             ctx.measure_fn = Some(Box::new(f));
         }
@@ -74,17 +74,18 @@ impl LayoutEngine {
                 },
                 |known_dimensions, available_space, _node_id, node_context, _style| {
                     // node_context здесь Option<&mut NodeContext>
-                    let measure_result = node_context
-                        .and_then(|ctx| ctx.measure_fn.as_ref())
-                        .map(|measure_fn| {
-                            let avail_w = match available_space.width {
-                                AvailableSpace::Definite(w) => w,
-                                AvailableSpace::MaxContent | AvailableSpace::MinContent => {
-                                    f32::MAX
-                                }
-                            };
-                            measure_fn(avail_w)
-                        });
+                    let measure_result =
+                        node_context
+                            .and_then(|ctx| ctx.measure_fn.as_ref())
+                            .map(|measure_fn| {
+                                let avail_w = match available_space.width {
+                                    AvailableSpace::Definite(w) => w,
+                                    AvailableSpace::MaxContent | AvailableSpace::MinContent => {
+                                        f32::MAX
+                                    }
+                                };
+                                measure_fn(avail_w)
+                            });
                     match measure_result {
                         Some((w, h)) => Size {
                             width: known_dimensions.width.unwrap_or(w),

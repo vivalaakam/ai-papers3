@@ -3,11 +3,11 @@ use alloc::vec::Vec;
 use core::convert::Infallible;
 use core::ffi::c_char;
 
+use crate::BmpImage;
 use embedded_graphics::geometry::Size;
 use embedded_graphics::pixelcolor::Gray4;
 use embedded_graphics::prelude::*;
 use log::info;
-use crate::BmpImage;
 
 unsafe extern "C" {
     fn papers3_display_set_rotation(rotation_degrees: i32) -> i32;
@@ -55,8 +55,12 @@ impl EmbeddedDisplay {
         let physical_width = unsafe { papers3_display_physical_width() };
         let physical_height = unsafe { papers3_display_physical_height() };
         let rotation = unsafe { papers3_display_get_rotation() };
-        info!("screen: x1:{} y1:{} x2:{} y2:{}", physical_width, physical_height, logical_width, logical_height);
-        if logical_width <= 0 || logical_height <= 0 || physical_width <= 0 || physical_height <= 0 {
+        info!(
+            "screen: x1:{} y1:{} x2:{} y2:{}",
+            physical_width, physical_height, logical_width, logical_height
+        );
+        if logical_width <= 0 || logical_height <= 0 || physical_width <= 0 || physical_height <= 0
+        {
             return Err(-1);
         }
         let buffer_size = ((physical_width + 1) / 2 * physical_height) as usize;

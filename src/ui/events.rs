@@ -24,7 +24,9 @@ pub struct EventDispatcher {
 
 impl EventDispatcher {
     pub fn new() -> Self {
-        Self { targets: Vec::new() }
+        Self {
+            targets: Vec::new(),
+        }
     }
 
     /// Зарегистрировать кликабельную область. Вызывается из draw_and_collect().

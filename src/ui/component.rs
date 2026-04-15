@@ -31,8 +31,12 @@ pub trait Component: Any + Sized + 'static {
 }
 
 impl<C: Component + Any> AnyComponent for C {
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 // ─── ComponentUpdater ─────────────────────────────────────────────────────────
@@ -115,7 +119,8 @@ impl InstantiatedComponent {
 
     pub fn update(&mut self, element: &mut AnyElement, engine: &mut LayoutEngine) {
         let mut updater = ComponentUpdater::new(self.node_id, engine);
-        self.helper.update(&mut *self.component, element.props_mut(), &mut updater);
+        self.helper
+            .update(&mut *self.component, element.props_mut(), &mut updater);
 
         // Деструктурируем updater целиком — избегаем частичного перемещения полей
         let (incoming, click_handler, engine) = updater.finish();

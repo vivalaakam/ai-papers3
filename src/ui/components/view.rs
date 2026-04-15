@@ -58,16 +58,36 @@ pub struct EdgeInsets {
 
 impl EdgeInsets {
     pub fn all(v: i32) -> Self {
-        Self { top: v, right: v, bottom: v, left: v }
+        Self {
+            top: v,
+            right: v,
+            bottom: v,
+            left: v,
+        }
     }
     pub fn horizontal(h: i32) -> Self {
-        Self { top: 0, right: h, bottom: 0, left: h }
+        Self {
+            top: 0,
+            right: h,
+            bottom: 0,
+            left: h,
+        }
     }
     pub fn vertical(v: i32) -> Self {
-        Self { top: v, right: 0, bottom: v, left: 0 }
+        Self {
+            top: v,
+            right: 0,
+            bottom: v,
+            left: 0,
+        }
     }
     pub fn lrtb(left: i32, right: i32, top: i32, bottom: i32) -> Self {
-        Self { top, right, bottom, left }
+        Self {
+            top,
+            right,
+            bottom,
+            left,
+        }
     }
 
     fn to_taffy(self) -> Rect<LengthPercentage> {
@@ -125,7 +145,10 @@ fn build_style(
             height: LengthPercentage::Length(gap as f32),
         },
         padding: padding.to_taffy(),
-        size: Size { width: width.to_taffy(), height: height.to_taffy() },
+        size: Size {
+            width: width.to_taffy(),
+            height: height.to_taffy(),
+        },
         flex_grow,
         flex_shrink,
         align_items,
@@ -145,7 +168,10 @@ impl Component for View {
     type Props = ViewProps;
 
     fn new(props: &ViewProps) -> Self {
-        Self { background: props.background, border: props.border }
+        Self {
+            background: props.background,
+            border: props.border,
+        }
     }
 
     fn update(&mut self, props: &mut ViewProps, updater: &mut ComponentUpdater) {

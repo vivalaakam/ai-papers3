@@ -26,7 +26,9 @@ impl Component for Image {
     type Props = ImageProps;
 
     fn new(props: &ImageProps) -> Self {
-        Self { image: props.image.clone() }
+        Self {
+            image: props.image.clone(),
+        }
     }
 
     fn update(&mut self, props: &mut ImageProps, updater: &mut ComponentUpdater) {

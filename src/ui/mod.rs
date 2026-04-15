@@ -45,7 +45,10 @@ impl UiApp {
             root.update(&mut element, &mut self.engine);
             self.root = Some(root);
         } else {
-            self.root.as_mut().unwrap().update(&mut element, &mut self.engine);
+            self.root
+                .as_mut()
+                .unwrap()
+                .update(&mut element, &mut self.engine);
         }
 
         let root_node = self.root.as_ref().unwrap().node_id;
@@ -58,7 +61,8 @@ impl UiApp {
         );
 
         // ── PHASE 3: DRAW + COLLECT HITS ──────────────────────────────────────
-        self.display.clear(embedded_graphics::pixelcolor::Gray4::new(15));
+        self.display
+            .clear(embedded_graphics::pixelcolor::Gray4::new(15));
         self.dispatcher.clear();
 
         {

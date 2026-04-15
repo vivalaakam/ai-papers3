@@ -37,15 +37,17 @@ pub struct UiRect {
 
 impl UiRect {
     pub fn new(x: i32, y: i32, width: i32, height: i32) -> Self {
-        Self { x, y, width, height }
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 
     /// Проверить, попадает ли точка (px, py) внутрь прямоугольника.
     pub fn contains(&self, px: i32, py: i32) -> bool {
-        px >= self.x
-            && px < self.x + self.width
-            && py >= self.y
-            && py < self.y + self.height
+        px >= self.x && px < self.x + self.width && py >= self.y && py < self.y + self.height
     }
 }
 
@@ -54,18 +56,18 @@ impl UiRect {
 /// Выбор размера шрифта Ubuntu Regular с поддержкой Unicode/Кириллицы.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum FontSize {
-    Small,          // Ubuntu Regular 13 px
+    Small, // Ubuntu Regular 13 px
     #[default]
-    Medium,         // Ubuntu Regular 18 px
-    Large,          // Ubuntu Regular 24 px
+    Medium, // Ubuntu Regular 18 px
+    Large, // Ubuntu Regular 24 px
 }
 
 impl FontSize {
     pub fn font(self) -> &'static FontFace<'static> {
         match self {
-            FontSize::Small  => &UBUNTU_REGULAR_13,
+            FontSize::Small => &UBUNTU_REGULAR_13,
             FontSize::Medium => &UBUNTU_REGULAR_18,
-            FontSize::Large  => &UBUNTU_REGULAR_24,
+            FontSize::Large => &UBUNTU_REGULAR_24,
         }
     }
 

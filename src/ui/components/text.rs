@@ -37,19 +37,28 @@ impl Component for Text {
     fn new(props: &TextProps) -> Self {
         Self {
             content: props.content.clone(),
-            style: TextStyle { font_size: props.font_size, color: props.color },
+            style: TextStyle {
+                font_size: props.font_size,
+                color: props.color,
+            },
             align: props.align,
         }
     }
 
     fn update(&mut self, props: &mut TextProps, updater: &mut ComponentUpdater) {
         self.content = std::mem::take(&mut props.content);
-        self.style = TextStyle { font_size: props.font_size, color: props.color };
+        self.style = TextStyle {
+            font_size: props.font_size,
+            color: props.color,
+        };
         self.align = props.align;
 
         // Text не имеет детей — только measure_fn для расчёта размера
         updater.set_layout_style(Style {
-            size: Size { width: Dimension::Auto, height: Dimension::Auto },
+            size: Size {
+                width: Dimension::Auto,
+                height: Dimension::Auto,
+            },
             ..Style::default()
         });
 

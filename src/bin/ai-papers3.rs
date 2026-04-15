@@ -5,13 +5,12 @@ use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec;
 
-use ai_papers3::{
-    AlignItems, BmpImage, Clock, Color, Config, Direction, EdgeInsets,
-    EmbeddedDisplay, FontSize, Gt911, Image, JustifyContent, MainAppError, SizeValue,
-    Text, TouchEvent, TouchTracker, UiApp, UiEvent, View,
-    connect_wifi_networks, load_image, read_file, set_display_rotation,
-};
 use ai_papers3::element;
+use ai_papers3::{
+    AlignItems, BmpImage, Clock, Color, Config, Direction, EdgeInsets, EmbeddedDisplay, FontSize,
+    Gt911, Image, JustifyContent, MainAppError, SizeValue, Text, TouchEvent, TouchTracker, UiApp,
+    UiEvent, View, connect_wifi_networks, load_image, read_file, set_display_rotation,
+};
 use embedded_sdmmc::{SdCard, VolumeManager};
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::gpio::PinDriver;
@@ -34,13 +33,11 @@ fn render_text_screen(app: &mut UiApp, lines: &str) {
         height: SizeValue::Percent(100.0),
         padding: EdgeInsets::all(16),
         background: Some(Color::WHITE),
-        children: vec![
-            element!(Text {
-                content: lines.to_string(),
-                font_size: FontSize::Large,
-                color: Color::BLACK,
-            })
-        ],
+        children: vec![element!(Text {
+            content: lines.to_string(),
+            font_size: FontSize::Large,
+            color: Color::BLACK,
+        })],
     }));
 }
 
@@ -53,11 +50,7 @@ fn render_image_screen(app: &mut UiApp, image: Arc<BmpImage>) {
         background: Some(Color::WHITE),
         justify_content: Some(JustifyContent::Center),
         align_items: Some(AlignItems::Center),
-        children: vec![
-            element!(Image {
-                image: Some(image),
-            })
-        ],
+        children: vec![element!(Image { image: Some(image) })],
     }));
 }
 
@@ -94,7 +87,11 @@ fn main() -> Result<(), MainAppError> {
     // UiApp берёт ownership над display — всё рисование теперь через него
     let mut app = UiApp::new(display);
 
-    show_loading_stage(&mut app, "Загрузка 1/4\nИнициализация SPI", &mut loading_text);
+    show_loading_stage(
+        &mut app,
+        "Загрузка 1/4\nИнициализация SPI",
+        &mut loading_text,
+    );
 
     let peripherals = peripherals::Peripherals::take().unwrap();
     let modem = peripherals.modem;
@@ -127,7 +124,11 @@ fn main() -> Result<(), MainAppError> {
     let sdcard = SdCard::new(spi_device, esp_idf_hal::delay::FreeRtos);
     info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
 
-    show_loading_stage(&mut app, "Загрузка 2/4\nИнициализация SD", &mut loading_text);
+    show_loading_stage(
+        &mut app,
+        "Загрузка 2/4\nИнициализация SD",
+        &mut loading_text,
+    );
 
     let volume_mgr = VolumeManager::new(sdcard, Clock);
     let volume0 = match volume_mgr.open_volume(embedded_sdmmc::VolumeIdx(0)) {
@@ -155,7 +156,11 @@ fn main() -> Result<(), MainAppError> {
                 entry.name,
                 entry.size,
                 entry.mtime,
-                if entry.attributes.is_directory() { "<DIR>" } else { "" }
+                if entry.attributes.is_directory() {
+                    "<DIR>"
+                } else {
+                    ""
+                }
             );
         })
         .unwrap();
@@ -179,7 +184,11 @@ fn main() -> Result<(), MainAppError> {
     // Загружаем sleep-image и оборачиваем в Arc для Image-компонента
     let sleep_image: Option<Arc<BmpImage>> = load_image(&root_dir).map(Arc::new);
 
-    show_loading_stage(&mut app, "Загрузка 4/4\nПодключение WiFi", &mut loading_text);
+    show_loading_stage(
+        &mut app,
+        "Загрузка 4/4\nПодключение WiFi",
+        &mut loading_text,
+    );
 
     let wifi_connection = connect_wifi_networks(modem, &config.networks);
 
@@ -232,9 +241,7 @@ fn main() -> Result<(), MainAppError> {
                         // Передаём событие в UI (на будущее — для Button)
                         let ui_event = match event {
                             TouchEvent::Touch(p) => Some(UiEvent::Tap(p)),
-                            TouchEvent::Slide { from, to } => {
-                                Some(UiEvent::Slide { from, to })
-                            }
+                            TouchEvent::Slide { from, to } => Some(UiEvent::Slide { from, to }),
                         };
 
                         if let Some(ref ev) = ui_event {
@@ -246,7 +253,10 @@ fn main() -> Result<(), MainAppError> {
                                     }
                                     TouchEvent::Slide { from, to } => alloc::format!(
                                         "Slide\n{}:{} -> {}:{}",
-                                        from.x, from.y, to.x, to.y
+                                        from.x,
+                                        from.y,
+                                        to.x,
+                                        to.y
                                     ),
                                 };
                                 render_text_screen(&mut app, &text);
