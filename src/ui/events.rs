@@ -22,6 +22,12 @@ pub struct EventDispatcher {
     targets: Vec<HitTarget>,
 }
 
+impl Default for EventDispatcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EventDispatcher {
     pub fn new() -> Self {
         Self {

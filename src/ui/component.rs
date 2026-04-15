@@ -8,6 +8,10 @@ use crate::ui::element::{AnyComponent, AnyElement, ComponentHelper};
 use crate::ui::events::EventDispatcher;
 use crate::ui::layout::LayoutEngine;
 
+type ClickHandler = Option<Arc<dyn Fn() + Send + Sync>>;
+
+pub(crate) struct UpdaterOutput<'a>(pub Vec<AnyElement>, pub ClickHandler, pub &'a mut LayoutEngine);
+
 // ─── Component trait ──────────────────────────────────────────────────────────
 
 pub trait Component: Any + Sized + 'static {
@@ -45,7 +49,7 @@ pub struct ComponentUpdater<'a> {
     pub(crate) node_id: taffy::NodeId,
     pub(crate) engine: &'a mut LayoutEngine,
     pub(crate) pending_children: Vec<AnyElement>,
-    pub(crate) click_handler: Option<Arc<dyn Fn() + Send + Sync>>,
+    pub(crate) click_handler: ClickHandler,
     has_measure_fn: bool,
 }
 
@@ -61,14 +65,8 @@ impl<'a> ComponentUpdater<'a> {
     }
 
     /// Деструктурировать updater, вернуть (children, handler, engine).
-    pub(crate) fn finish(
-        self,
-    ) -> (
-        Vec<AnyElement>,
-        Option<Arc<dyn Fn() + Send + Sync>>,
-        &'a mut LayoutEngine,
-    ) {
-        (self.pending_children, self.click_handler, self.engine)
+    pub(crate) fn finish(self) -> UpdaterOutput<'a> {
+        UpdaterOutput(self.pending_children, self.click_handler, self.engine)
     }
 
     pub fn set_layout_style(&mut self, style: Style) {
@@ -123,7 +121,7 @@ impl InstantiatedComponent {
             .update(&mut *self.component, element.props_mut(), &mut updater);
 
         // Деструктурируем updater целиком — избегаем частичного перемещения полей
-        let (incoming, click_handler, engine) = updater.finish();
+        let UpdaterOutput(incoming, click_handler, engine) = updater.finish();
         self.click_handler = click_handler;
         self.reconcile_children(incoming, engine);
     }
@@ -144,8 +142,8 @@ impl InstantiatedComponent {
         }
 
         // Шаг 2: обработать позиции 0..old_len (существующие дети)
-        for i in 0..old_len.min(new_len) {
-            let mut child_element = incoming[i].take().unwrap();
+        for (i, slot) in incoming.iter_mut().enumerate().take(old_len.min(new_len)) {
+            let mut child_element = slot.take().unwrap();
             if self.children[i].type_id != child_element.type_id() {
                 // Тип изменился — заменяем
                 let new_child = InstantiatedComponent::create(&child_element, engine);
@@ -156,8 +154,8 @@ impl InstantiatedComponent {
         }
 
         // Шаг 3: добавить новые дети (позиции old_len..new_len)
-        for i in old_len..new_len {
-            let mut child_element = incoming[i].take().unwrap();
+        for slot in incoming.iter_mut().take(new_len).skip(old_len) {
+            let mut child_element = slot.take().unwrap();
             let mut new_child = InstantiatedComponent::create(&child_element, engine);
             new_child.update(&mut child_element, engine);
             self.children.push(new_child);

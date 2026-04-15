@@ -176,7 +176,7 @@ impl<'a> DrawContext<'a> {
         let glyph_y = baseline_y + glyph.y_offset as i32;
         let w = glyph.width as usize;
         let h = glyph.height as usize;
-        let bytes_per_row = (w + 7) / 8;
+        let bytes_per_row = w.div_ceil(8);
         let base = glyph.bitmap_offset as usize;
 
         for row in 0..h {

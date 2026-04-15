@@ -3,6 +3,8 @@ use taffy::prelude::*;
 
 use crate::ui::canvas::UiRect;
 
+type MeasureFn = Box<dyn Fn(f32) -> (f32, f32) + Send>;
+
 // ─── NodeContext ──────────────────────────────────────────────────────────────
 
 /// Пользовательские данные, хранящиеся в каждом узле taffy.
@@ -11,13 +13,19 @@ use crate::ui::canvas::UiRect;
 #[derive(Default)]
 pub struct NodeContext {
     /// f(available_width_px) → (width_px, height_px)
-    pub measure_fn: Option<Box<dyn Fn(f32) -> (f32, f32) + Send>>,
+    pub measure_fn: Option<MeasureFn>,
 }
 
 // ─── LayoutEngine ─────────────────────────────────────────────────────────────
 
 pub struct LayoutEngine {
     tree: TaffyTree<NodeContext>,
+}
+
+impl Default for LayoutEngine {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl LayoutEngine {

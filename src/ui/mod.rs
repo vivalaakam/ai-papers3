@@ -40,15 +40,12 @@ impl UiApp {
     /// Полный цикл рендера: reconcile → layout → draw → flush.
     pub fn render(&mut self, mut element: AnyElement) {
         // ── PHASE 1: UPDATE ───────────────────────────────────────────────────
-        if self.root.is_none() {
+        if let Some(root) = self.root.as_mut() {
+            root.update(&mut element, &mut self.engine);
+        } else {
             let mut root = InstantiatedComponent::create(&element, &mut self.engine);
             root.update(&mut element, &mut self.engine);
             self.root = Some(root);
-        } else {
-            self.root
-                .as_mut()
-                .unwrap()
-                .update(&mut element, &mut self.engine);
         }
 
         let root_node = self.root.as_ref().unwrap().node_id;

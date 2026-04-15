@@ -126,6 +126,7 @@ pub struct ViewProps {
     pub children: Vec<AnyElement>,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_style(
     direction: Direction,
     gap: i32,
