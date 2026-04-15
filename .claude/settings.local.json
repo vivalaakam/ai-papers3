@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(awk '{print $NF}')",
-      "Bash(grep -E \"\\\\.md$\")"
+      "Bash(grep -E \"\\\\.md$\")",
+      "Bash(cargo build:*)"
     ]
   }
 }

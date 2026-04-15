@@ -1,6 +1,7 @@
 extern crate alloc;
 
 mod clock;
+pub mod ui;
 mod config;
 mod display;
 mod enums;
@@ -20,3 +21,14 @@ pub use file::read_file;
 pub use image::{BmpImage, load_image};
 pub use touch::{Gt911, TouchEvent, TouchPoint, TouchTracker};
 pub use wifi::{WifiConnection, connect_wifi_networks};
+
+// UI system
+pub use ui::UiApp;
+pub use ui::canvas::{Color, FontSize, UiRect};
+pub use ui::events::UiEvent;
+pub use ui::components::view::{
+    AlignItems, Border, Direction, EdgeInsets, JustifyContent, SizeValue, View, ViewProps,
+};
+pub use ui::components::text::{Text, TextAlign, TextProps};
+pub use ui::components::button::{Button, ButtonProps};
+pub use ui::components::image::{Image, ImageProps};
