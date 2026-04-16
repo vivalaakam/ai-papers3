@@ -31,9 +31,15 @@ fn main() {
         if app.poll_events() {
             break;
         }
-        for point in app.drain_input() {
-            if !app.handle_event(UiEvent::Tap(point)) {
-                let text = format!("Touch\nX: {}\nY: {}", point.x, point.y);
+        for event in app.poll_touch() {
+            if !app.handle_event(event.clone()) {
+                let text = match event {
+                    UiEvent::Tap(p) => format!("Touch\nX: {}\nY: {}", p.x, p.y),
+                    UiEvent::Slide { from, to } => format!(
+                        "Slide\n{}:{} -> {}:{}",
+                        from.x, from.y, to.x, to.y
+                    ),
+                };
                 render_text_screen(app.ui_mut(), &text);
             }
         }

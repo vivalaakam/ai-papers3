@@ -6,7 +6,7 @@ use embedded_graphics_simulator::{
 };
 
 use crate::display::{DisplayError, DisplayTarget};
-use crate::{BmpImage, TouchPoint};
+use crate::BmpImage;
 
 pub struct SimulatedDisplay {
     display: SimulatorDisplay<Gray4>,
@@ -16,8 +16,8 @@ pub struct SimulatedDisplay {
     physical_width: i32,
     physical_height: i32,
     rotation: i32,
-    pending_events: Vec<TouchPoint>,
     quit_requested: bool,
+    pending_touch: alloc::vec::Vec<crate::TouchPoint>,
 }
 
 impl SimulatedDisplay {
@@ -40,8 +40,8 @@ impl SimulatedDisplay {
             physical_width,
             physical_height,
             rotation,
-            pending_events: Vec::new(),
             quit_requested: false,
+            pending_touch: alloc::vec::Vec::new(),
         }
     }
 
@@ -94,7 +94,7 @@ impl SimulatedDisplay {
                 }
                 SimulatorEvent::MouseButtonUp { point, .. } => {
                     if point.x >= 0 && point.y >= 0 {
-                        self.pending_events.push(TouchPoint {
+                        self.pending_touch.push(crate::TouchPoint {
                             x: point.x as u16,
                             y: point.y as u16,
                         });
@@ -143,8 +143,8 @@ impl DisplayTarget for SimulatedDisplay {
         self.quit_requested
     }
 
-    fn drain_input(&mut self) -> Vec<TouchPoint> {
+    fn drain_input(&mut self) -> alloc::vec::Vec<crate::TouchPoint> {
         self.pump_events();
-        self.pending_events.drain(..).collect()
+        self.pending_touch.drain(..).collect()
     }
 }

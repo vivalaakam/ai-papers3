@@ -2,67 +2,13 @@ use esp_idf_hal::delay::TickType;
 use esp_idf_hal::i2c::I2cDriver;
 use esp_idf_sys::EspError;
 
+use super::{TouchPoint, TouchSource};
+
 const GT911_I2C_ADDR_PRIMARY: u8 = 0x5D;
 const GT911_I2C_ADDR_ALT: u8 = 0x14;
 const GT911_REG_STATUS: u16 = 0x814E;
 const GT911_REG_POINT1: u16 = 0x8150;
 const I2C_TIMEOUT_MS: u64 = 100;
-
-#[derive(Debug, Clone, Copy)]
-pub struct TouchPoint {
-    pub x: u16,
-    pub y: u16,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum TouchEvent {
-    Touch(TouchPoint),
-    Slide { from: TouchPoint, to: TouchPoint },
-}
-
-#[derive(Debug, Default)]
-pub struct TouchTracker {
-    last_point: Option<TouchPoint>,
-    min_delta: u16,
-}
-
-impl TouchTracker {
-    pub fn new(min_delta: u16) -> Self {
-        Self {
-            last_point: None,
-            min_delta,
-        }
-    }
-
-    pub fn on_sample(&mut self, point: Option<TouchPoint>) -> Option<TouchEvent> {
-        match (self.last_point, point) {
-            (None, Some(current)) => {
-                self.last_point = Some(current);
-                Some(TouchEvent::Touch(current))
-            }
-            (Some(previous), Some(current)) => {
-                if !self.moved_enough(previous, current) {
-                    return None;
-                }
-                self.last_point = Some(current);
-                Some(TouchEvent::Slide {
-                    from: previous,
-                    to: current,
-                })
-            }
-            (_, None) => {
-                self.last_point = None;
-                None
-            }
-        }
-    }
-
-    fn moved_enough(&self, from: TouchPoint, to: TouchPoint) -> bool {
-        let dx = from.x.abs_diff(to.x);
-        let dy = from.y.abs_diff(to.y);
-        dx >= self.min_delta || dy >= self.min_delta
-    }
-}
 
 pub struct Gt911<'d> {
     i2c: I2cDriver<'d>,
@@ -84,28 +30,6 @@ impl<'d> Gt911<'d> {
         }
 
         None
-    }
-
-    pub fn read_touch(&mut self) -> Result<Option<TouchPoint>, EspError> {
-        let status = self.read_u8(GT911_REG_STATUS)?;
-        if status & 0x80 == 0 {
-            return Ok(None);
-        }
-
-        let points = status & 0x0F;
-        if points == 0 {
-            self.write_u8(GT911_REG_STATUS, 0x00)?;
-            return Ok(None);
-        }
-
-        let mut data = [0u8; 4];
-        self.read_bytes(GT911_REG_POINT1, &mut data)?;
-        self.write_u8(GT911_REG_STATUS, 0x00)?;
-
-        Ok(Some(TouchPoint {
-            x: u16::from_le_bytes([data[0], data[1]]),
-            y: u16::from_le_bytes([data[2], data[3]]),
-        }))
     }
 
     fn read_u8(&mut self, register: u16) -> Result<u8, EspError> {
@@ -144,5 +68,29 @@ impl<'d> Gt911<'d> {
 
     fn reg_low(register: u16) -> u8 {
         (register & 0xFF) as u8
+    }
+}
+
+impl<'d> TouchSource for Gt911<'d> {
+    fn poll(&mut self) -> Option<TouchPoint> {
+        let status = self.read_u8(GT911_REG_STATUS).ok()?;
+        if status & 0x80 == 0 {
+            return None;
+        }
+
+        let points = status & 0x0F;
+        if points == 0 {
+            self.write_u8(GT911_REG_STATUS, 0x00).ok()?;
+            return None;
+        }
+
+        let mut data = [0u8; 4];
+        self.read_bytes(GT911_REG_POINT1, &mut data).ok()?;
+        self.write_u8(GT911_REG_STATUS, 0x00).ok()?;
+
+        Some(TouchPoint {
+            x: u16::from_le_bytes([data[0], data[1]]),
+            y: u16::from_le_bytes([data[2], data[3]]),
+        })
     }
 }

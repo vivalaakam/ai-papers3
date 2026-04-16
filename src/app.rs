@@ -7,6 +7,15 @@ use alloc::vec;
 
 use crate::element;
 use crate::storage::Storage;
+use crate::touch::{TouchEvent, TouchSource, TouchTracker};
+use crate::ui::events::UiEvent;
+
+fn touch_event_to_ui(event: TouchEvent) -> UiEvent {
+    match event {
+        TouchEvent::Touch(p) => UiEvent::Tap(p),
+        TouchEvent::Slide { from, to } => UiEvent::Slide { from, to },
+    }
+}
 use crate::ui::UiApp;
 use crate::{
     AlignItems, BmpImage, Color, Config, Direction, EdgeInsets, FontSize, Image, JustifyContent,
@@ -39,6 +48,8 @@ pub fn load_assets(storage: &dyn Storage) -> Result<AppAssets, String> {
 pub struct App {
     ui: UiApp,
     storage: Option<Box<dyn Storage>>,
+    touch: Option<Box<dyn TouchSource>>,
+    touch_tracker: TouchTracker,
     assets: AppAssets,
 }
 
@@ -51,17 +62,33 @@ impl App {
         Ok(Self {
             ui: UiApp::new(display),
             storage: Some(Box::new(storage)),
+            touch: None,
+            touch_tracker: TouchTracker::new(6),
             assets,
         })
     }
 
-    pub fn with_ui(ui: UiApp, storage: impl Storage + 'static) -> Result<Self, String> {
+    pub fn with_ui(
+        ui: UiApp,
+        storage: impl Storage + 'static,
+    ) -> Result<Self, String> {
         let assets = load_assets(&storage)?;
         Ok(Self {
             ui,
             storage: Some(Box::new(storage)),
+            touch: None,
+            touch_tracker: TouchTracker::new(6),
             assets,
         })
+    }
+
+    pub fn with_touch(mut self, source: impl TouchSource + 'static) -> Self {
+        self.touch = Some(Box::new(source));
+        self
+    }
+
+    pub fn set_touch_tracker_delta(&mut self, delta: u16) {
+        self.touch_tracker = TouchTracker::new(delta);
     }
 
     pub fn into_display(self) -> Box<dyn crate::display::DisplayTarget> {
@@ -94,6 +121,41 @@ impl App {
 
     pub fn ui_mut(&mut self) -> &mut UiApp {
         &mut self.ui
+    }
+
+    /// Опросить источник тач-событий и вернуть обработанные UiEvent.
+    /// — С TouchSource (embedded): опрашивает драйвер через poll()
+    /// — Без TouchSource (simulator): берёт точки из drain_input() дисплея
+    /// Возвращает Vec, т.к. за один опрос может прийти несколько точек.
+    pub fn poll_touch(&mut self) -> alloc::vec::Vec<crate::ui::events::UiEvent> {
+        let mut events = alloc::vec::Vec::new();
+
+        if let Some(touch) = self.touch.as_mut() {
+            // Путь с TouchSource (embedded — Gt911, или внешний SimulatorTouch)
+            let point = touch.poll();
+            if let Some(event) = self.touch_tracker.on_sample(point) {
+                events.push(touch_event_to_ui(event));
+            }
+        } else {
+            // Путь без TouchSource (simulator — точки из drain_input)
+            for point in self.ui.drain_input() {
+                if let Some(event) = self.touch_tracker.on_sample(Some(point)) {
+                    events.push(touch_event_to_ui(event));
+                }
+            }
+            // Если точек не было — сбрасываем трекер (палец отпущен)
+            if events.is_empty() {
+                self.touch_tracker.on_sample(None);
+            }
+        }
+
+        events
+    }
+
+    /// Сообщить трекеру, что тач-события нет (палец отпущен).
+    /// Вызывать, когда физический сенсор не обнаруживает касания.
+    pub fn release_touch(&mut self) {
+        self.touch_tracker.on_sample(None);
     }
 }
 

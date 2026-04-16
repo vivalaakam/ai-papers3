@@ -6,7 +6,8 @@
       "Bash(cargo build:*)",
       "Bash(cargo clippy:*)",
       "Bash(grep -v \"^$\")",
-      "Bash(cargo check *)"
+      "Bash(cargo check *)",
+      "Bash(cargo run *)"
     ]
   }
 }

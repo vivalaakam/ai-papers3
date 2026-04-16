@@ -10,6 +10,14 @@ pub enum TouchEvent {
     Slide { from: TouchPoint, to: TouchPoint },
 }
 
+// ─── TouchSource ─────────────────────────────────────────────────────────────
+
+pub trait TouchSource {
+    fn poll(&mut self) -> Option<TouchPoint>;
+}
+
+// ─── TouchTracker ────────────────────────────────────────────────────────────
+
 #[derive(Debug, Default)]
 pub struct TouchTracker {
     last_point: Option<TouchPoint>,
@@ -53,3 +61,17 @@ impl TouchTracker {
         dx >= self.min_delta || dy >= self.min_delta
     }
 }
+
+// ─── Драйверы ───────────────────────────────────────────────────────────────
+
+#[cfg(target_os = "espidf")]
+mod gt911;
+
+#[cfg(target_os = "espidf")]
+pub use gt911::Gt911;
+
+#[cfg(feature = "simulator")]
+mod simulator;
+
+#[cfg(feature = "simulator")]
+pub use simulator::SimulatorTouch;

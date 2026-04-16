@@ -4,8 +4,8 @@ extern crate alloc;
 use alloc::string::{String, ToString};
 
 use ai_papers3::{
-    App, Clock, EmbeddedDisplay, Gt911, MainAppError, SDCardStorage, TouchEvent, TouchTracker,
-    UiApp, UiEvent, connect_wifi_networks, render_image_screen, render_text_screen,
+    App, Clock, EmbeddedDisplay, Gt911, MainAppError, SDCardStorage, UiApp,
+    UiEvent, connect_wifi_networks, render_image_screen, render_text_screen,
     set_display_rotation, show_loading_stage,
 };
 use embedded_sdmmc::{SdCard, VolumeManager};
@@ -78,7 +78,11 @@ fn main() -> Result<(), MainAppError> {
     let sdcard = SdCard::new(spi_device, FreeRtos);
     info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
 
-    show_loading_stage(&mut ui, "Загрузка 2/4\nИнициализация SD", &mut loading_text);
+    show_loading_stage(
+        &mut ui,
+        "Загрузка 2/4\nИнициализация SD",
+        &mut loading_text,
+    );
 
     let volume_mgr = VolumeManager::new(sdcard, Clock);
     let storage = SDCardStorage::new(volume_mgr, None);
@@ -126,10 +130,8 @@ fn main() -> Result<(), MainAppError> {
         }
     };
 
-    let mut touch = Gt911::new(i2c, touch_address);
-    let mut touch_tracker = TouchTracker::new(6);
-    let mut idle_ms: u32 = 0;
-    let mut sleep_shown = false;
+    let touch = Gt911::new(i2c, touch_address);
+    app = app.with_touch(touch);
 
     let touch_int = match PinDriver::input(gpios.gpio48) {
         Ok(d) => d,
@@ -139,44 +141,27 @@ fn main() -> Result<(), MainAppError> {
         }
     };
 
+    let mut idle_ms: u32 = 0;
+    let mut sleep_shown = false;
+
     loop {
         if touch_int.is_low() {
-            match touch.read_touch() {
-                Ok(point) => {
-                    if let Some(event) = touch_tracker.on_sample(point) {
-                        idle_ms = 0;
-                        sleep_shown = false;
-
-                        let ui_event = match event {
-                            TouchEvent::Touch(p) => Some(UiEvent::Tap(p)),
-                            TouchEvent::Slide { from, to } => Some(UiEvent::Slide { from, to }),
-                        };
-
-                        if let Some(ref ev) = ui_event {
-                            if !app.handle_event(ev.clone()) {
-                                let text = match event {
-                                    TouchEvent::Touch(p) => {
-                                        alloc::format!("Touch\nX: {}\nY: {}", p.x, p.y)
-                                    }
-                                    TouchEvent::Slide { from, to } => alloc::format!(
-                                        "Slide\n{}:{} -> {}:{}",
-                                        from.x,
-                                        from.y,
-                                        to.x,
-                                        to.y
-                                    ),
-                                };
-                                render_text_screen(app.ui_mut(), &text);
-                            }
-                        }
-                    }
-                }
-                Err(err) => {
-                    info!("Touch read error: {}", err);
+            for event in app.poll_touch() {
+                idle_ms = 0;
+                sleep_shown = false;
+                if !app.handle_event(event.clone()) {
+                    let text = match event {
+                        UiEvent::Tap(p) => alloc::format!("Touch\nX: {}\nY: {}", p.x, p.y),
+                        UiEvent::Slide { from, to } => alloc::format!(
+                            "Slide\n{}:{} -> {}:{}",
+                            from.x, from.y, to.x, to.y
+                        ),
+                    };
+                    render_text_screen(app.ui_mut(), &text);
                 }
             }
         } else {
-            touch_tracker.on_sample(None);
+            app.release_touch();
             idle_ms = idle_ms.saturating_add(50);
             if !sleep_shown && idle_ms >= SLEEP_IDLE_MS {
                 sleep_shown = true;

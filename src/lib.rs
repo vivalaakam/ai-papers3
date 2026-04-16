@@ -9,10 +9,6 @@ mod enums;
 pub mod fonts;
 mod image;
 mod storage;
-#[cfg(target_os = "espidf")]
-mod touch;
-#[cfg(not(target_os = "espidf"))]
-#[path = "touch_stub.rs"]
 mod touch;
 pub mod ui;
 #[cfg(target_os = "espidf")]
@@ -41,9 +37,10 @@ pub use storage::LocalStorage;
 pub use storage::SDCardStorage;
 pub use storage::Storage;
 #[cfg(target_os = "espidf")]
-pub use touch::{Gt911, TouchEvent, TouchPoint, TouchTracker};
-#[cfg(not(target_os = "espidf"))]
-pub use touch::{TouchEvent, TouchPoint, TouchTracker};
+pub use touch::Gt911;
+#[cfg(feature = "simulator")]
+pub use touch::SimulatorTouch;
+pub use touch::{TouchEvent, TouchPoint, TouchSource, TouchTracker};
 #[cfg(target_os = "espidf")]
 pub use wifi::{WifiConnection, connect_wifi_networks};
 
