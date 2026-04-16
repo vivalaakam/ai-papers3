@@ -1,8 +1,4 @@
-use embedded_graphics::pixelcolor::Gray4;
-use embedded_graphics::prelude::*;
-use embedded_graphics::primitives::{PrimitiveStyleBuilder, Rectangle};
-
-use crate::display::EmbeddedDisplay;
+use crate::display::DisplayTarget;
 use crate::fonts::{FontFace, GlyphInfo, UBUNTU_REGULAR_13, UBUNTU_REGULAR_18, UBUNTU_REGULAR_24};
 use crate::image::BmpImage;
 
@@ -18,10 +14,6 @@ impl Color {
     pub const DARK_GRAY: Color = Color(4);
     pub const GRAY: Color = Color(8);
     pub const LIGHT_GRAY: Color = Color(11);
-
-    pub(crate) fn to_gray4(self) -> Gray4 {
-        Gray4::new(self.0 & 0x0F)
-    }
 }
 
 // ─── UiRect ──────────────────────────────────────────────────────────────────
@@ -89,11 +81,11 @@ pub struct TextStyle {
 
 /// Контекст рисования. Компоненты получают его в методе `draw()`.
 pub struct DrawContext<'a> {
-    display: &'a mut EmbeddedDisplay,
+    display: &'a mut dyn DisplayTarget,
 }
 
 impl<'a> DrawContext<'a> {
-    pub fn new(display: &'a mut EmbeddedDisplay) -> Self {
+    pub fn new(display: &'a mut dyn DisplayTarget) -> Self {
         Self { display }
     }
 
@@ -102,16 +94,13 @@ impl<'a> DrawContext<'a> {
         if rect.width <= 0 || rect.height <= 0 {
             return;
         }
-        let style = PrimitiveStyleBuilder::new()
-            .fill_color(color.to_gray4())
-            .build();
-        Rectangle::new(
-            Point::new(rect.x, rect.y),
-            Size::new(rect.width as u32, rect.height as u32),
-        )
-        .into_styled(style)
-        .draw(self.display)
-        .ok();
+        let end_x = rect.x + rect.width;
+        let end_y = rect.y + rect.height;
+        for y in rect.y..end_y {
+            for x in rect.x..end_x {
+                self.display.draw_pixel(x, y, color.0 & 0x0F);
+            }
+        }
     }
 
     /// Нарисовать рамку вокруг прямоугольника (без заливки).
@@ -119,17 +108,24 @@ impl<'a> DrawContext<'a> {
         if rect.width <= 0 || rect.height <= 0 || thickness == 0 {
             return;
         }
-        let style = PrimitiveStyleBuilder::new()
-            .stroke_color(color.to_gray4())
-            .stroke_width(thickness)
-            .build();
-        Rectangle::new(
-            Point::new(rect.x, rect.y),
-            Size::new(rect.width as u32, rect.height as u32),
-        )
-        .into_styled(style)
-        .draw(self.display)
-        .ok();
+        let thickness = thickness as i32;
+        let end_x = rect.x + rect.width;
+        let end_y = rect.y + rect.height;
+        for offset in 0..thickness {
+            let top = rect.y + offset;
+            let bottom = end_y - 1 - offset;
+            for x in rect.x..end_x {
+                self.display.draw_pixel(x, top, color.0 & 0x0F);
+                self.display.draw_pixel(x, bottom, color.0 & 0x0F);
+            }
+
+            let left = rect.x + offset;
+            let right = end_x - 1 - offset;
+            for y in rect.y..end_y {
+                self.display.draw_pixel(left, y, color.0 & 0x0F);
+                self.display.draw_pixel(right, y, color.0 & 0x0F);
+            }
+        }
     }
 
     /// Нарисовать текст (включая многострочный, разделитель '\n').
@@ -162,7 +158,7 @@ impl<'a> DrawContext<'a> {
 
     /// Нарисовать один глиф из таблицы шрифта.
     fn draw_glyph(
-        display: &mut EmbeddedDisplay,
+        display: &mut dyn DisplayTarget,
         font: &FontFace<'_>,
         glyph: &GlyphInfo,
         cursor_x: i32,

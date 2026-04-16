@@ -10,7 +10,11 @@ use crate::ui::layout::LayoutEngine;
 
 type ClickHandler = Option<Arc<dyn Fn() + Send + Sync>>;
 
-pub(crate) struct UpdaterOutput<'a>(pub Vec<AnyElement>, pub ClickHandler, pub &'a mut LayoutEngine);
+pub(crate) struct UpdaterOutput<'a>(
+    pub Vec<AnyElement>,
+    pub ClickHandler,
+    pub &'a mut LayoutEngine,
+);
 
 // ─── Component trait ──────────────────────────────────────────────────────────
 

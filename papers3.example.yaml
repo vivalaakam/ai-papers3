@@ -1,0 +1,6 @@
+backend_url: "http://192.168.1.2:8787/api/v1"
+networks:
+  - ssid: "wifi-1"
+    password: "pass-1"
+  - ssid: "wifi-2"
+    password: "pass-2"

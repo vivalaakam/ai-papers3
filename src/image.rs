@@ -1,7 +1,6 @@
-use crate::read_file;
+use crate::storage::Storage;
 use alloc::vec;
 use alloc::vec::Vec;
-use embedded_sdmmc::{BlockDevice, Directory, TimeSource};
 use log::info;
 use miniz_oxide::inflate::decompress_to_vec_zlib_with_limit;
 
@@ -296,16 +295,8 @@ pub fn decode_png(data: &[u8]) -> Result<BmpImage, &'static str> {
     })
 }
 
-pub fn load_image<
-    D: BlockDevice,
-    T: TimeSource,
-    const MAX_DIRS: usize,
-    const MAX_FILES: usize,
-    const MAX_VOLUMES: usize,
->(
-    root_dir: &Directory<'_, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-) -> Option<BmpImage> {
-    let png_data = read_file(root_dir, "OUTPUT.PNG")?;
+pub fn load_image(storage: &dyn Storage) -> Option<BmpImage> {
+    let png_data = storage.read_file("OUTPUT.PNG")?;
 
     let Ok(image) = decode_png(&png_data) else {
         info!("PNG decode error");
